@@ -1,0 +1,105 @@
+.kb-card {
+  background: var(--tr-surface, #fff);
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(16,24,40,.08);
+}
+
+.kb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--tr-surface, #fff);
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(16,24,40,.1);
+}
+
+.kb-entry {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--gray-100);
+  transition: background .12s;
+  &:last-child { border-bottom: none; }
+  &:hover { background: var(--gray-25, #FCFCFD); }
+}
+
+.kb-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  border: 1px solid var(--gray-200);
+  user-select: none;
+}
+
+.kb-search {
+  width: 100%;
+  padding: 10px 14px 10px 40px;
+  border: 1px solid var(--gray-300);
+  border-radius: 9px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--gray-700);
+  box-sizing: border-box;
+  outline: none;
+  transition: .12s;
+  &:focus { border-color: var(--primary-400, #84ADFF); box-shadow: 0 0 0 3px rgba(41,112,255,.12); }
+  &::placeholder { color: var(--gray-400); }
+}
+
+.kb-input {
+  width: 100%;
+  padding: 9px 13px;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--gray-700);
+  box-sizing: border-box;
+  outline: none;
+  background: var(--tr-surface, #fff);
+  transition: .12s;
+  &:focus { border-color: var(--primary-400, #84ADFF); box-shadow: 0 0 0 3px rgba(41,112,255,.12); }
+  &::placeholder { color: var(--gray-400); }
+}
+
+.kb-primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: 9px;
+  background: var(--primary-600, #2970FF);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background .14s;
+  &:hover { background: var(--primary-700, #1D5CE6); }
+  &:disabled { opacity: .45; cursor: not-allowed; }
+}
+
+.kb-ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gray-600);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  border: 1px solid var(--gray-200);
+  cursor: pointer;
+  transition: .12s;
+  &:hover { background: var(--gray-50); color: var(--gray-800); }
+}

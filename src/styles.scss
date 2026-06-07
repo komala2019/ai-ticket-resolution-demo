@@ -1,0 +1,65 @@
+/* Global design tokens (Untitled-UI style) the ticket-resolution module
+   relies on via var(--...). The module supplies its own dark-mode overrides
+   on .tr-shell, so only the light base is defined here. */
+:root {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* Gray */
+  --gray-25:  #FCFCFD;
+  --gray-50:  #F9FAFB;
+  --gray-100: #F2F4F7;
+  --gray-200: #EAECF0;
+  --gray-300: #D0D5DD;
+  --gray-400: #98A2B3;
+  --gray-500: #667085;
+  --gray-600: #475467;
+  --gray-700: #344054;
+  --gray-800: #1D2939;
+  --gray-900: #101828;
+
+  /* Primary (blue) */
+  --primary-50:  #EFF8FF;
+  --primary-100: #D1E9FF;
+  --primary-300: #84CAFF;
+  --primary-600: #2970FF;
+  --primary-700: #175CD3;
+  --primary-800: #1849A9;
+
+  /* Success (green) */
+  --success-50:  #ECFDF3;
+  --success-500: #12B76A;
+  --success-600: #039855;
+  --success-700: #027A48;
+
+  /* Warning (amber) */
+  --warning-50:  #FFFAEB;
+  --warning-500: #F79009;
+  --warning-600: #DC6803;
+  --warning-700: #B54708;
+
+  /* Error (red) */
+  --error-50:  #FEF3F2;
+  --error-500: #F04438;
+  --error-600: #D92D20;
+  --error-700: #B42318;
+
+  /* Purple (Type 1 / novel) */
+  --purple-500: #7A5AF8;
+  --purple-200: #E9D7FE;
+  --purple-50:  #F4EBFF;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  background: var(--gray-50);
+  color: var(--gray-900);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-color-scheme: dark) {
+  html, body { background: #0C111D; }
+}

@@ -1,0 +1,119 @@
+<div class="doc-wrap">
+
+  <!-- Hero -->
+  <header class="doc-hero">
+    <span class="doc-eyebrow">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Architecture
+    </span>
+    <h1 class="doc-h1">How the feature is built</h1>
+    <p class="doc-lede">
+      A single lazy-loaded Angular module with a clean three-layer separation: presentation components,
+      component-local state with pure routing logic, and a static typed data layer. Data flows one way;
+      events bubble up.
+    </p>
+  </header>
+
+  <!-- Layered architecture -->
+  <section>
+    <h2 class="doc-h2 section-title">Layered architecture</h2>
+    <div class="layer-stack">
+      <ng-container *ngFor="let layer of layers; let i = index">
+        <div class="layer" [style.--accent]="layer.accent">
+          <div class="layer-rail"></div>
+          <div class="layer-body">
+            <div class="layer-head">
+              <span class="layer-name">{{ layer.name }}</span>
+              <span class="layer-blurb">{{ layer.blurb }}</span>
+            </div>
+            <div class="layer-items">
+              <div class="layer-item" *ngFor="let it of layer.items">
+                <span class="layer-item-label">{{ it.label }}</span>
+                <span class="layer-item-sub" *ngIf="it.sub">{{ it.sub }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="layer-arrow" *ngIf="i < layers.length - 1">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+        </div>
+      </ng-container>
+    </div>
+  </section>
+
+  <!-- Classification & routing engine -->
+  <section class="doc-card">
+    <h2 class="doc-h2">Classification &amp; routing engine</h2>
+    <p class="doc-p" style="margin-bottom:16px;">
+      Every ticket gets a confidence score. The pure function
+      <code class="doc-code">routeFor(score, thresholds)</code> buckets that score into one of four routes.
+      The thresholds are live — the Tweaks panel mutates them and the queue re-buckets instantly.
+    </p>
+
+    <div class="engine">
+      <div class="engine-input">
+        <span class="engine-input-num">0–100</span>
+        <span class="engine-input-label">confidence score</span>
+      </div>
+      <svg class="engine-arrow" width="26" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      <div class="engine-fn"><code class="doc-code">routeFor()</code></div>
+      <svg class="engine-arrow" width="26" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      <div class="engine-bands">
+        <div class="band" *ngFor="let b of routeBands" [style.border-left-color]="b.hex">
+          <div class="band-top">
+            <span class="band-dot" [style.background]="b.hex"></span>
+            <span class="band-label">{{ b.label }}</span>
+            <span class="band-range">{{ b.range }}</span>
+          </div>
+          <span class="band-human">{{ b.human }}</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Resolution sequence -->
+  <section>
+    <h2 class="doc-h2 section-title">Resolution sequence</h2>
+    <div class="seq">
+      <div class="seq-step" *ngFor="let s of sequence; let last = last">
+        <div class="seq-actor" [style.color]="actorMeta[s.actor].hex" [style.border-color]="actorMeta[s.actor].hex">
+          {{ actorMeta[s.actor].label }}
+        </div>
+        <div class="seq-text">{{ s.text }}</div>
+        <div class="seq-line" *ngIf="!last"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Key decisions -->
+  <section>
+    <h2 class="doc-h2 section-title">Key design decisions</h2>
+    <div class="dec-grid">
+      <div class="dec-card" *ngFor="let d of decisions">
+        <div class="dec-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary-600)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          {{ d.title }}
+        </div>
+        <p class="dec-body">{{ d.body }}</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Route registration snippet -->
+  <section class="doc-card">
+    <h2 class="doc-h2">Route registration</h2>
+    <p class="doc-p" style="margin-bottom:14px;">
+      Declared first in <code class="doc-code">app.routes.ts</code>, ahead of the guarded
+      <code class="doc-code">path: ''</code> entry, so the router matches it directly:
+    </p>
+    <pre class="code-block"><span class="c-punc">{{ '{' }}</span> <span class="c-key">path</span>: <span class="c-str">'ticket-resolution'</span>,
+  <span class="c-key">loadChildren</span>: () =&gt; <span class="c-fn">import</span>(<span class="c-str">'./home/ticket-resolution/ticket-resolution.module'</span>)
+    .<span class="c-fn">then</span>(m =&gt; m.TicketResolutionModule) <span class="c-punc">}</span></pre>
+    <p class="doc-note">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      No <code class="doc-code">canActivate: [AuthGuard]</code> — the module is self-contained and
+      renders without a backend, so it never hits the auth redirect.
+    </p>
+  </section>
+
+</div>

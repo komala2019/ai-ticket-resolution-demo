@@ -1,0 +1,119 @@
+<div class="doc-wrap">
+
+  <!-- Hero -->
+  <header class="doc-hero">
+    <span class="doc-eyebrow">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg>
+      README
+    </span>
+    <h1 class="doc-h1">AI Ticket Auto-Resolution</h1>
+    <p class="doc-lede">
+      An intelligent, human-in-the-loop support layer that classifies incoming issues by confidence,
+      resolves what it can autonomously, and escalates the rest with full context — so no ticket ever
+      vanishes into a black hole.
+    </p>
+    <div class="doc-pills">
+      <span class="doc-pill">Angular feature module</span>
+      <span class="doc-pill">Lazy-loaded route</span>
+      <span class="doc-pill">Dark-mode aware</span>
+      <span class="doc-pill">Standalone demo data</span>
+    </div>
+  </header>
+
+  <!-- Overview -->
+  <section class="doc-card">
+    <h2 class="doc-h2">Overview</h2>
+    <p class="doc-p">
+      The module presents two perspectives of one workflow. The <strong>Customer</strong> view is a
+      conversational assistant that diagnoses and resolves issues in plain language. The
+      <strong>CS console</strong> view is the agent-facing side: a live approval queue of AI-drafted
+      resolutions, a knowledge base that powers matching, and an analytics dashboard that tracks impact.
+      A floating <strong>Tweaks</strong> panel lets you drag the confidence thresholds and watch the queue
+      re-route in real time.
+    </p>
+  </section>
+
+  <!-- Capabilities: three ticket types -->
+  <section>
+    <h2 class="doc-h2 section-title">Three classes of ticket</h2>
+    <div class="cap-grid">
+      <div class="cap-card" *ngFor="let c of capabilities" [style.border-top-color]="TYPE_META[c.type].hex">
+        <div class="cap-head">
+          <span class="cap-type" [style.background]="TYPE_META[c.type].soft" [style.color]="TYPE_META[c.type].hex">
+            {{ TYPE_META[c.type].label }}
+          </span>
+          <span class="cap-name">{{ TYPE_META[c.type].name }}</span>
+        </div>
+        <p class="cap-desc">{{ TYPE_META[c.type].desc }}</p>
+        <div class="cap-route">
+          <span class="cap-route-dot" [style.background]="c.routeHex"></span>
+          {{ c.route }}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section>
+    <h2 class="doc-h2 section-title">How it works</h2>
+    <div class="flow-grid">
+      <div class="flow-step" *ngFor="let s of flow">
+        <span class="flow-num">{{ s.n }}</span>
+        <div>
+          <div class="flow-title">{{ s.title }}</div>
+          <div class="flow-text">{{ s.text }}</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Components -->
+  <section class="doc-card">
+    <h2 class="doc-h2">Components</h2>
+    <p class="doc-p" style="margin-bottom:14px;">
+      The feature is a single lazy-loaded <code class="doc-code">TicketResolutionModule</code>.
+      Everything below is declared inside it.
+    </p>
+    <div class="comp-table">
+      <div class="comp-row comp-head">
+        <span>Component</span><span>Selector</span><span>Responsibility</span>
+      </div>
+      <div class="comp-row" *ngFor="let c of components">
+        <span class="comp-name">{{ c.name }}</span>
+        <span class="comp-sel"><code class="doc-code">{{ c.selector }}</code></span>
+        <span class="comp-role">{{ c.role }}</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Impact metrics -->
+  <section>
+    <h2 class="doc-h2 section-title">Impact at a glance</h2>
+    <div class="metric-grid">
+      <div class="metric-card" *ngFor="let m of metrics">
+        <div class="metric-k">{{ m.k }}</div>
+        <div class="metric-now">{{ m.now }}</div>
+        <div class="metric-delta" [class.good]="m.good">{{ m.delta }}</div>
+        <div class="metric-sub">{{ m.sub }}</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Navigating -->
+  <section class="doc-card">
+    <h2 class="doc-h2">Navigating the module</h2>
+    <ul class="route-list">
+      <li *ngFor="let r of routes">
+        <code class="doc-code">{{ r.path }}</code>
+        <span class="route-desc">{{ r.desc }}</span>
+      </li>
+    </ul>
+    <p class="doc-note">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      This module ships with self-contained demo data (<code class="doc-code">ticket-data.ts</code>) and
+      makes no backend calls, so the route loads without authentication. See the
+      <strong>Architecture</strong> tab for the data flow and routing details.
+    </p>
+  </section>
+
+</div>

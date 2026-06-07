@@ -1,0 +1,369 @@
+/* AI Ticket Auto-Resolution — shell styles */
+
+/* Purple scale (Type 1 / novel) — not in the global token set.
+   Light defaults declared FIRST so the dark-mode @media override below
+   wins by source order when dark is active (same selector specificity). */
+.tr-shell {
+  --purple-500: #7A5AF8;
+  --purple-200: #E9D7FE;
+  --purple-50:  #F4EBFF;
+}
+
+/* ── Dark-mode token overrides ───────────────
+   Defined here on .tr-shell (the root element) so every child component
+   inherits the flipped gray scale via CSS custom property inheritance.
+   Individual child :host blocks no longer need to repeat this.          */
+@media (prefers-color-scheme: dark) {
+  .tr-shell {
+    /* Gray scale — inverted */
+    --gray-900: #F9FAFB;
+    --gray-800: #EAECF0;
+    --gray-700: #D0D5DD;
+    --gray-600: #98A2B3;
+    --gray-500: #667085;
+    --gray-400: #475467;
+    --gray-200: #1D2939;
+    --gray-100: #182230;
+    --gray-50:  #0C111D;
+    --gray-25:  #070A12;
+
+    /* Surface / card backgrounds */
+    --tr-surface:    #1A1D2E;
+
+    /* Primary accent — keep vivid */
+    --primary-50:    rgba(41, 112, 255, .12);
+    --primary-100:   rgba(41, 112, 255, .2);
+
+    /* Status badges */
+    --success-700:   #6CE9A6;
+    --success-50:    rgba(22, 163, 74, .15);
+    --error-700:     #FDA29B;
+    --error-50:      rgba(220, 38, 38, .15);
+
+    /* Purple (Type 1) — light text on a translucent tint for dark mode */
+    --purple-500:    #B9A7FC;
+    --purple-200:    rgba(122, 90, 248, .35);
+    --purple-50:     rgba(122, 90, 248, .18);
+  }
+}
+
+.tr-shell {
+  min-height: 100vh;
+  background: var(--gray-50);
+  font-family: var(--font-sans, 'Inter', sans-serif);
+  color: var(--gray-900);
+}
+
+/* ── Top bar ─────────────────────────────── */
+.tr-topbar {
+  height: 72px;
+  background: var(--tr-surface, #fff);
+  border-bottom: 1px solid var(--gray-200);
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  gap: 18px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.tr-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  text-decoration: none;
+}
+.tr-logo-mark {
+  width: 32px; height: 32px;
+  border-radius: 7px;
+  background: var(--primary-600);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.tr-logo-text {
+  font-family: var(--font-sans, 'Inter', sans-serif);
+  font-weight: 700;
+  font-style: italic;
+  font-size: 21px;
+  letter-spacing: -0.04em;
+  color: var(--gray-900);
+}
+.tr-topbar-divider {
+  width: 1px; height: 26px;
+  background: var(--gray-200);
+}
+.tr-topbar-title {
+  display: flex;
+  flex-direction: column;
+}
+.tr-ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  background: var(--primary-50);
+  color: var(--primary-700);
+  border: 1px solid #B2DDFF;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* Perspective switcher */
+.tr-segmented {
+  display: inline-flex;
+  background: var(--gray-100);
+  border-radius: 9px;
+  padding: 3px;
+  gap: 2px;
+}
+.tr-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 7px;
+  border: 0;
+  background: transparent;
+  color: var(--gray-600);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: .15s;
+  font-family: inherit;
+
+  svg { color: var(--gray-500); transition: .15s; }
+
+  &.active {
+    background: var(--tr-surface, #fff);
+    color: var(--gray-900);
+    box-shadow: 0 1px 3px 0 rgba(16,24,40,.1), 0 1px 2px 0 rgba(16,24,40,.06);
+    svg { color: var(--primary-600); }
+  }
+}
+
+/* Docs nav */
+.tr-docs-nav {
+  display: inline-flex;
+  gap: 4px;
+}
+.tr-doc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--gray-600);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: .15s;
+  font-family: inherit;
+
+  svg { color: var(--gray-500); transition: .15s; }
+
+  &:hover { background: var(--gray-100); }
+
+  &.active {
+    background: var(--primary-50);
+    color: var(--primary-700);
+    border-color: #B2DDFF;
+    svg { color: var(--primary-600); }
+  }
+}
+
+/* ── Sub-nav ─────────────────────────────── */
+.tr-subnav {
+  background: var(--tr-surface, #fff);
+  border-bottom: 1px solid var(--gray-200);
+  padding: 0 32px;
+  display: flex;
+  gap: 24px;
+  position: sticky;
+  top: 72px;
+  z-index: 20;
+}
+.tr-subtab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 4px;
+  border: 0;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--gray-500);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: .15s;
+  font-family: inherit;
+  svg { color: var(--gray-400); transition: .15s; }
+
+  &.active {
+    color: var(--gray-900);
+    border-bottom-color: var(--primary-600);
+    svg { color: var(--primary-600); }
+  }
+}
+
+/* ── Content area ────────────────────────── */
+.tr-content {
+  padding: 28px 32px 80px;
+  &.customer-view {
+    padding: 24px 32px;
+    height: calc(100vh - 72px);
+    box-sizing: border-box;
+  }
+  /* Docs pages are taller than the viewport; the global app locks
+     body overflow, so give the docs their own scroll region under
+     the sticky topbar. */
+  &.docs-view {
+    height: calc(100vh - 72px);
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+}
+.tr-customer-wrapper {
+  height: 100%;
+}
+
+/* ── Toast ───────────────────────────────── */
+.tr-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--gray-900);
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: 10px;
+  box-shadow: 0 32px 64px -12px rgba(16,24,40,.14);
+  font-size: 14px;
+  font-weight: 500;
+  animation: tr-toast-in .25s cubic-bezier(.4,0,.2,1);
+  white-space: nowrap;
+}
+@keyframes tr-toast-in {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* ── Tweaks panel ────────────────────────── */
+.tr-tweaks-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 50;
+  width: 272px;
+  background: rgba(250,249,247,.85);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: .5px solid rgba(255,255,255,.6);
+  border-radius: 14px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 12px 40px rgba(0,0,0,.18);
+  font-size: 11.5px;
+  font-family: inherit;
+  overflow: hidden;
+}
+.tr-tweaks-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: .5px solid rgba(0,0,0,.08);
+  color: rgba(41,38,27,.9);
+}
+.tr-tweaks-body {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tr-tweaks-section {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: rgba(41,38,27,.45);
+  padding-top: 4px;
+}
+.tr-tweak-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.tr-tweak-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: rgba(41,38,27,.8);
+  font-weight: 500;
+}
+.tr-tweak-val { color: rgba(41,38,27,.45); }
+.tr-slider {
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.12);
+  outline: none;
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    border: .5px solid rgba(0,0,0,.12);
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    cursor: pointer;
+  }
+  &::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    border: .5px solid rgba(0,0,0,.12);
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    cursor: pointer;
+  }
+}
+.tr-routing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.tr-routing-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+}
+.tr-routing-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.tr-routing-label { flex: 1; font-size: 11px; color: rgba(41,38,27,.65); }
+.tr-routing-count { font-size: 14px; font-weight: 700; color: rgba(41,38,27,.9); font-variant-numeric: tabular-nums; }
+.tr-tweaks-reset {
+  appearance: none;
+  border: 0;
+  border-radius: 7px;
+  background: rgba(0,0,0,.78);
+  color: #fff;
+  font: inherit;
+  font-weight: 500;
+  font-size: 11.5px;
+  padding: 5px 12px;
+  cursor: pointer;
+  margin-top: 4px;
+  &:hover { background: rgba(0,0,0,.9); }
+}

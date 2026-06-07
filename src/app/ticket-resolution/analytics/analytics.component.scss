@@ -1,0 +1,51 @@
+/* ── Scoped tokens — light defaults only (dark overrides live on .tr-shell) ── */
+:host {
+  --tr-card-bg:    #fff;
+  --tr-dot-stroke: #fff;
+  --tr-trend-fill: rgba(41, 112, 255, .07);
+  --tr-shadow:     rgba(16, 24, 40, .08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :host {
+    --tr-card-bg:    var(--tr-surface, #1A1D2E);
+    --tr-dot-stroke: var(--tr-surface, #1A1D2E);
+    --tr-trend-fill: rgba(82, 139, 255, .13);
+    --tr-shadow:     rgba(0, 0, 0, .35);
+  }
+}
+
+/* ── Components ───────────────────────────── */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.metric-card {
+  background: var(--tr-card-bg);
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px var(--tr-shadow);
+}
+
+.metric-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 20px;
+  &.positive { color: var(--success-700, #067647); background: var(--success-50, #ECFDF3); }
+  &.negative { color: var(--error-700, #B42318);   background: var(--error-50,    #FEF3F2); }
+}
+
+.analytics-card {
+  background: var(--tr-card-bg);
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 20px 22px;
+  box-shadow: 0 1px 3px var(--tr-shadow);
+}

@@ -1,0 +1,93 @@
+<div style="display:flex;flex-direction:column;gap:20px;">
+  <!-- Header -->
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h1 style="margin:0 0 4px;font-size:24px;font-weight:700;color:var(--gray-900);letter-spacing:-0.02em;">Knowledge base</h1>
+      <p style="margin:0;font-size:14px;color:var(--gray-500);">Articles that train confidence scores. More thorough articles → higher auto-resolve rates.</p>
+    </div>
+    <button class="kb-primary-btn" (click)="showAdd = !showAdd">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add article
+    </button>
+  </div>
+
+  <!-- Add form -->
+  <div *ngIf="showAdd" class="kb-card" style="border-color:var(--primary-200);box-shadow:0 0 0 3px rgba(41,112,255,.1);">
+    <div style="font-size:13.5px;font-weight:600;color:var(--gray-800);margin-bottom:14px;">New article</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <input [(ngModel)]="newTitle" placeholder="Article title" class="kb-input" />
+      <textarea [(ngModel)]="newContent" placeholder="Article content…" rows="4" class="kb-input" style="resize:vertical;"></textarea>
+      <input [(ngModel)]="newTags" placeholder="Tags (comma-separated): e.g. billing, widgets" class="kb-input" />
+      <div style="display:flex;gap:8px;">
+        <button class="kb-primary-btn" [disabled]="!newTitle.trim()" (click)="addEntry()">Save article</button>
+        <button class="kb-ghost-btn" (click)="showAdd = false">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <div style="position:relative;">
+    <svg style="position:absolute;left:13px;top:50%;transform:translateY(-50%);pointer-events:none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input [(ngModel)]="query" placeholder="Search articles…" class="kb-search" />
+  </div>
+
+  <!-- Stats bar -->
+  <div style="display:flex;gap:24px;font-size:13px;color:var(--gray-500);">
+    <span><strong style="color:var(--gray-900);">{{ entries.length }}</strong> articles</span>
+    <span><strong style="color:var(--gray-900);">{{ totalUses }}</strong> AI uses this month</span>
+    <span *ngIf="query" style="color:var(--primary-600);">{{ filtered.length }} result{{ filtered.length !== 1 ? 's' : '' }} for "{{ query }}"</span>
+  </div>
+
+  <!-- Entry list -->
+  <div class="kb-list">
+    <div *ngFor="let e of filtered" class="kb-entry">
+      <!-- View mode -->
+      <ng-container *ngIf="editId !== e.id">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:15.5px;font-weight:700;color:var(--gray-900);margin-bottom:5px;">{{ e.title }}</div>
+            <p style="margin:0 0 10px;font-size:14px;color:var(--gray-600);line-height:21px;">{{ e.content }}</p>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span *ngFor="let tag of e.tags" class="kb-tag">{{ tag }}</span>
+            </div>
+          </div>
+          <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
+            <div style="font-size:12px;color:var(--gray-400);">Updated {{ e.updated }}</div>
+            <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--gray-400);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg>
+              {{ e.uses }} AI uses
+            </div>
+            <button class="kb-ghost-btn" (click)="startEdit(e)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit
+            </button>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- Edit mode -->
+      <ng-container *ngIf="editId === e.id">
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <input [(ngModel)]="editTitle" class="kb-input" />
+          <textarea [(ngModel)]="editContent" rows="4" class="kb-input" style="resize:vertical;"></textarea>
+          <div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
+              <span *ngFor="let tag of editTags; let i = index" class="kb-tag" style="cursor:pointer;" (click)="removeTag(i)">
+                {{ tag }} ×
+              </span>
+            </div>
+            <input class="kb-input" placeholder="Add tag (Enter)" (keydown)="addTag($event)" style="width:200px;" />
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="kb-primary-btn" (click)="saveEdit()">Save</button>
+            <button class="kb-ghost-btn" (click)="cancelEdit()">Cancel</button>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+
+    <div *ngIf="filtered.length === 0" style="padding:40px;text-align:center;color:var(--gray-400);font-size:14px;">
+      No articles match "{{ query }}".
+    </div>
+  </div>
+</div>

@@ -1,0 +1,17 @@
+# Netlify build config — used when you connect this repo to Netlify.
+# (For the drag-and-drop "Netlify Drop" route you don't need this; just
+#  drop the built `dist/` folder.)
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Angular 15 builds reliably on Node 18. Netlify will use this version
+  # regardless of your local Node version.
+  NODE_VERSION = "18"
+
+# SPA fallback so deep links / refreshes resolve to the Angular app.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
