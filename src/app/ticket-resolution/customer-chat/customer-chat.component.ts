@@ -1,6 +1,7 @@
 import { Component, Input, OnChanges, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { SCENARIOS, SCENARIO_ORDER, TYPE_META, routeFor, Thresholds, ScenarioStep, Scenario } from '../ticket-data';
 import { TicketResolutionApiService } from '../ticket-resolution-api.service';
+import { buildDynamicScenario } from '../local-classifier';
 
 type OutcomeKind = 'fixed' | 'notify' | 'failed' | null;
 
@@ -25,9 +26,27 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   halted = false;
   outcome: OutcomeKind = null;
 
+  /** Free-text the user types in the composer. */
+  composerText = '';
+
   private timer: any;
 
-  get scenario(): Scenario { return SCENARIOS[this.sid]; }
+  get scenario(): Scenario { return this.SCENARIOS[this.sid]; }
+
+  /** User submitted their own issue → classify it client-side and play it. */
+  onSend() {
+    const text = this.composerText.trim();
+    if (!text) return;
+    this.composerText = '';
+    const dynamic = buildDynamicScenario(text, this.thresholds);
+    this.SCENARIOS = { ...this.SCENARIOS, __custom: dynamic };
+    this.sid = '__custom';
+    this.n = 0;
+    this.halted = false;
+    this.outcome = null;
+    clearTimeout(this.timer);
+    this.startPlayback();
+  }
   get steps(): ScenarioStep[] { return this.scenario.steps; }
   get visible(): ScenarioStep[] { return this.steps.slice(0, this.n); }
   get classified(): boolean { return this.visible.some(s => s.kind === 'classify'); }

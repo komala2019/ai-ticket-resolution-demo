@@ -272,8 +272,9 @@
     outline: none;
     background: transparent;
     font-size: 14px;
-    color: var(--gray-500);
+    color: var(--gray-900);
     font-family: inherit;
+    &::placeholder { color: var(--gray-500); }
   }
 }
 .send-icon {

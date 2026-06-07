@@ -246,9 +246,10 @@
       <div *ngIf="pendingClarify" class="chips-row">
         <button *ngFor="let c of last?.chips" class="clarify-chip" (click)="onChip()">{{ c }}</button>
       </div>
-      <div *ngIf="!pendingClarify" class="composer" [class.done]="done">
-        <input disabled [placeholder]="done ? 'Conversation complete — pick a scenario or replay' : 'Describe your issue in plain language…'" />
-        <span class="send-icon">
+      <div *ngIf="!pendingClarify" class="composer">
+        <input [(ngModel)]="composerText" (keyup.enter)="onSend()"
+               placeholder="Describe your issue in plain language…" />
+        <span class="send-icon" (click)="onSend()" [style.cursor]="'pointer'" [style.opacity]="composerText.trim() ? 1 : 0.5">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </span>
       </div>
