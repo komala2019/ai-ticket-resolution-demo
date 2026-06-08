@@ -75,6 +75,59 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     const userStep: ScenarioStep = { from: 'user', text: msg };
     if (attachment) userStep.attachment = attachment;
 
+    if (this.agentJoined) {
+      currentSteps.push(userStep);
+      
+      const typingStep: ScenarioStep = {
+        from: 'ai',
+        agent: true,
+        kind: 'thinking',
+        text: 'Maya is typing...'
+      };
+      currentSteps.push(typingStep);
+      
+      const customScenario: Scenario = {
+        id: '__custom',
+        label: 'Your issue',
+        type: this.SCENARIOS['__custom'] ? this.SCENARIOS['__custom'].type : 3,
+        confidence: this.SCENARIOS['__custom'] ? this.SCENARIOS['__custom'].confidence : 0,
+        productArea: this.SCENARIOS['__custom'] ? this.SCENARIOS['__custom'].productArea : 'General',
+        priority: this.SCENARIOS['__custom'] ? this.SCENARIOS['__custom'].priority : 'P3',
+        summary: this.SCENARIOS['__custom'] ? this.SCENARIOS['__custom'].summary : msg,
+        steps: currentSteps,
+        ticketId: this.customTicketId || undefined
+      };
+      this.SCENARIOS = { ...this.SCENARIOS, __custom: customScenario };
+      this.n = currentSteps.length;
+      this.halted = true;
+      setTimeout(() => this.scrollToBottom(), 50);
+
+      setTimeout(() => {
+        const stepsList = this.SCENARIOS['__custom'].steps;
+        const thinkIdx = stepsList.findIndex(s => s.kind === 'thinking' && s.agent);
+        
+        const replyText = getSimulatedAgentReply(msg);
+        const agentStep: ScenarioStep = {
+          from: 'ai',
+          agent: true,
+          text: replyText
+        };
+        
+        if (thinkIdx !== -1) {
+          stepsList[thinkIdx] = agentStep;
+        } else {
+          stepsList.push(agentStep);
+        }
+        
+        this.n = stepsList.length;
+        this.halted = false;
+        this.demo.notify('Maya (Support)', replyText, 'blue');
+        setTimeout(() => this.scrollToBottom(), 50);
+      }, 1600);
+      
+      return;
+    }
+
     // Check if the intent is a potential bug or just plain language
     const isBug = isBugIntent(msg, this.demo.kb);
 
@@ -140,8 +193,14 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
           const randIdx = Math.floor(Math.random() * greetings.length);
           aiStepText = greetings[randIdx];
         } else {
-          // Use client-side classification to construct a real local answer
-          const localResult = classifyIssue(msg, this.demo.kb, this.thresholds);
+          // Use client-side classification on the CUMULATIVE context so short
+          // follow-up messages resolve correctly against prior turns.
+          const priorForClassify = currentSteps
+            .filter(s => s.from === 'user' && s.text)
+            .map(s => s.text || '')
+            .slice(-3);
+          const contextMsg = [...priorForClassify, msg].join(' ').trim();
+          const localResult = classifyIssue(contextMsg, this.demo.kb, this.thresholds);
           if (localResult.type === 1) {
             aiStepText = "I couldn't find a confident match for this issue in our local knowledge base. I recommend opening a support ticket below so we can escalate this to the engineering team.";
           } else if (localResult.type === 2) {
@@ -152,8 +211,17 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         }
       }
 
-      // Check if the query is vague
-      const isVague = isVagueQuery(msg);
+      // Build cumulative context from prior user messages in this conversation
+      // so short follow-ups like "widget missing" after "booking widget" are
+      // correctly evaluated as specific, not vague.
+      const priorUserTexts = currentSteps
+        .filter(s => s.from === 'user' && s.text)
+        .map(s => s.text || '')
+        .slice(-3); // last 3 user turns at most
+      const cumulativeMsg = [...priorUserTexts, msg].join(' ').trim();
+
+      // isVague is true only when the COMBINED context is still vague
+      const isVague = isVagueQuery(cumulativeMsg);
 
       let score = response.confidence ?? 0;
       let route = response.route || 'fallback';
@@ -163,7 +231,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       let evidence: { t: string; m: number }[] = [];
 
       if (isOffline) {
-        const localResult = classifyIssue(msg, this.demo.kb, this.thresholds);
+        const localResult = classifyIssue(cumulativeMsg, this.demo.kb, this.thresholds);
         score = localResult.confidence;
         route = localResult.route;
         type = localResult.type;
@@ -660,4 +728,29 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       this.sub.unsubscribe();
     }
   }
+}
+
+function getSimulatedAgentReply(userMessage: string): string {
+  const msg = userMessage.toLowerCase();
+  if (msg.includes('thank') || msg.includes('awesome') || msg.includes('great') || msg.includes('perfect')) {
+    return "You're very welcome! I'm happy I could help. Let me know if there's anything else I can assist with today.";
+  }
+  if (msg.includes('work') || msg.includes('fixed') || msg.includes('resolved') || msg.includes('working')) {
+    return "Awesome, glad that worked for you! I will mark this ticket as resolved on our end. Have a wonderful day!";
+  }
+  if (msg.includes('error') || msg.includes('broken') || msg.includes('fail') || msg.includes('sync') || msg.includes('bug')) {
+    return "I see the issue. I am looking into our backend database logs right now to see why the sync failed. One moment, please.";
+  }
+  if (msg.includes('how long') || msg.includes('eta') || msg.includes('when')) {
+    return "Our engineering team usually resolves these escalations within a few hours. I will personally monitor this and follow up with you as soon as I have an update!";
+  }
+  
+  const replies = [
+    "I'm reviewing the details you've shared. Let me investigate this on my end and see if we can get it cleared up.",
+    "Got it. Let me pull up your account settings to see if there is any misconfiguration on the backend.",
+    "I'm on it. I will check our service status page and verify if we have any active incidents affecting your account.",
+    "Let me check that for you. Could you please confirm if you're seeing this on all browsers, or just one?"
+  ];
+  const randIdx = Math.floor(Math.random() * replies.length);
+  return replies[randIdx];
 }
