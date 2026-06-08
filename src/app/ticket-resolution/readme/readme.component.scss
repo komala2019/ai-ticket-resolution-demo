@@ -256,3 +256,70 @@
   .comp-head { display: none; }
   .doc-h1 { font-size: 28px; }
 }
+
+/* ── Resources Banner ─────────────────────── */
+.resources-banner {
+  background: var(--tr-surface, #fff);
+  border: 1px solid var(--gray-200);
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 1px 2px rgba(16,24,40,.05);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.resource-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gray-900);
+  svg {
+    color: var(--primary-600);
+  }
+}
+.resource-links {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.resource-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  cursor: pointer;
+
+  &.pptx {
+    background: var(--warning-50);
+    color: var(--warning-700);
+    border: 1px solid var(--warning-200);
+    &:hover {
+      background: var(--warning-100);
+    }
+  }
+
+  &.pdf {
+    background: #FEE4E2;
+    color: #B42318;
+    border: 1px solid #FDA29B;
+    &:hover {
+      background: #FECDCA;
+    }
+  }
+
+  &.docx {
+    background: var(--primary-50);
+    color: var(--primary-700);
+    border: 1px solid var(--primary-200);
+    &:hover {
+      background: var(--primary-100);
+    }
+  }
+}

@@ -1,6 +1,5 @@
 <div class="doc-wrap">
 
-  <!-- Hero -->
   <header class="doc-hero">
     <span class="doc-eyebrow">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg>
@@ -8,112 +7,173 @@
     </span>
     <h1 class="doc-h1">AI Ticket Auto-Resolution</h1>
     <p class="doc-lede">
-      An intelligent, human-in-the-loop support layer that classifies incoming issues by confidence,
-      resolves what it can autonomously, and escalates the rest with full context — so no ticket ever
-      vanishes into a black hole.
+      An interactive demo of a human-in-the-loop support workflow. The shell switches between the customer experience, the CS console, and the in-app docs while the shared state service keeps everything in sync.
     </p>
-    <div class="doc-pills">
-      <span class="doc-pill">Angular feature module</span>
-      <span class="doc-pill">Lazy-loaded route</span>
-      <span class="doc-pill">Dark-mode aware</span>
-      <span class="doc-pill">Standalone demo data</span>
-    </div>
   </header>
 
-  <!-- Overview -->
-  <section class="doc-card">
-    <h2 class="doc-h2">Overview</h2>
-    <p class="doc-p">
-      The module presents two perspectives of one workflow. The <strong>Customer</strong> view is a
-      conversational assistant that diagnoses and resolves issues in plain language. The
-      <strong>CS console</strong> view is the agent-facing side: a live approval queue of AI-drafted
-      resolutions, a knowledge base that powers matching, and an analytics dashboard that tracks impact.
-      A floating <strong>Tweaks</strong> panel lets you drag the confidence thresholds and watch the queue
-      re-route in real time.
-    </p>
-  </section>
-
-  <!-- Capabilities: three ticket types -->
-  <section>
-    <h2 class="doc-h2 section-title">Three classes of ticket</h2>
-    <div class="cap-grid">
-      <div class="cap-card" *ngFor="let c of capabilities" [style.border-top-color]="TYPE_META[c.type].hex">
-        <div class="cap-head">
-          <span class="cap-type" [style.background]="TYPE_META[c.type].soft" [style.color]="TYPE_META[c.type].hex">
-            {{ TYPE_META[c.type].label }}
-          </span>
-          <span class="cap-name">{{ TYPE_META[c.type].name }}</span>
-        </div>
-        <p class="cap-desc">{{ TYPE_META[c.type].desc }}</p>
-        <div class="cap-route">
-          <span class="cap-route-dot" [style.background]="c.routeHex"></span>
-          {{ c.route }}
-        </div>
-      </div>
+  <!-- Demo Reference Documents -->
+  <div class="resources-banner">
+    <div class="resource-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+      </svg>
+      Demo Reference Materials
     </div>
-  </section>
+    <div class="resource-links">
+      <a href="/assets/AI_Ticket_Resolution.pdf" target="_blank" class="resource-btn pdf">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+        </svg>
+        View Presentation (PDF)
+      </a>
+      <a href="/assets/AI_Ticket_Resolution.pptx" download class="resource-btn pptx">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 2 22 22 22 12 2"/>
+        </svg>
+        Download Slides (PPTX)
+      </a>
+      <a href="/assets/AI_Ticket_Resolution_PRD.docx" download class="resource-btn docx">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+        </svg>
+        Requirements Document (DOCX)
+      </a>
+    </div>
+  </div>
 
-  <!-- How it works -->
-  <section>
-    <h2 class="doc-h2 section-title">How it works</h2>
+  <section class="doc-card">
+    <h2 class="doc-h2">Core Concept</h2>
+    <p class="doc-p" style="margin-bottom: 16px;">
+      The app follows a simple loop: describe the issue, clarify the context, classify the ticket, route it by confidence, resolve it, and confirm the outcome.
+    </p>
+
     <div class="flow-grid">
-      <div class="flow-step" *ngFor="let s of flow">
-        <span class="flow-num">{{ s.n }}</span>
+      <div class="flow-step">
+        <span class="flow-num">1</span>
         <div>
-          <div class="flow-title">{{ s.title }}</div>
-          <div class="flow-text">{{ s.text }}</div>
+          <div class="flow-title">Describe</div>
+          <div class="flow-text">The customer enters the issue in plain language instead of filling out a form.</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">2</span>
+        <div>
+          <div class="flow-title">Clarify</div>
+          <div class="flow-text">The assistant asks targeted follow-up questions to remove ambiguity before making a match.</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">3</span>
+        <div>
+          <div class="flow-title">Classify</div>
+          <div class="flow-text">The live classifier compares the query against the knowledge base and historical tickets to produce a confidence score.</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">4</span>
+        <div>
+          <div class="flow-title">Route</div>
+          <div class="flow-text">Thresholds split the ticket into Auto-resolve, CS approval, CS rewrite, or Eng queue.</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">5</span>
+        <div>
+          <div class="flow-title">Resolve</div>
+          <div class="flow-text">Known fixes are sent directly, known issues get a workaround, and novel cases are escalated with context.</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">6</span>
+        <div>
+          <div class="flow-title">Confirm</div>
+          <div class="flow-text">Customer feedback updates the metrics, flags the KB if needed, and improves future routing.</div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Components -->
-  <section class="doc-card">
-    <h2 class="doc-h2">Components</h2>
-    <p class="doc-p" style="margin-bottom:14px;">
-      The feature is a single lazy-loaded <code class="doc-code">TicketResolutionModule</code>.
-      Everything below is declared inside it.
-    </p>
-    <div class="comp-table">
-      <div class="comp-row comp-head">
-        <span>Component</span><span>Selector</span><span>Responsibility</span>
-      </div>
-      <div class="comp-row" *ngFor="let c of components">
-        <span class="comp-name">{{ c.name }}</span>
-        <span class="comp-sel"><code class="doc-code">{{ c.selector }}</code></span>
-        <span class="comp-role">{{ c.role }}</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- Impact metrics -->
   <section>
-    <h2 class="doc-h2 section-title">Impact at a glance</h2>
-    <div class="metric-grid">
-      <div class="metric-card" *ngFor="let m of metrics">
-        <div class="metric-k">{{ m.k }}</div>
-        <div class="metric-now">{{ m.now }}</div>
-        <div class="metric-delta" [class.good]="m.good">{{ m.delta }}</div>
-        <div class="metric-sub">{{ m.sub }}</div>
+    <h2 class="doc-h2 section-title">Resolution Paths</h2>
+    <div class="cap-grid">
+      <div class="cap-card" style="border-top: 4px solid var(--success-600);">
+        <div class="cap-head">
+          <span class="cap-type" style="background: var(--success-50); color: var(--success-700);">Type 3 - Happy Path</span>
+          <span class="cap-name">Auto-resolve in chat</span>
+        </div>
+        <p class="cap-desc">The issue matches a clear KB article, the customer sees the fix immediately, and the ticket closes when they confirm it worked.</p>
+      </div>
+
+      <div class="cap-card" style="border-top: 4px solid var(--primary-600);">
+        <div class="cap-head">
+          <span class="cap-type" style="background: var(--primary-50); color: var(--primary-700);">Type 2 - Agent Assist</span>
+          <span class="cap-name">CS approval queue</span>
+        </div>
+        <p class="cap-desc">The issue is familiar but not fully solved. A CS rep reviews the draft, edits it if needed, and approves the response before sending.</p>
+      </div>
+
+      <div class="cap-card" style="border-top: 4px solid #7A5AF8;">
+        <div class="cap-head">
+          <span class="cap-type" style="background: #F4EBFF; color: #7A5AF8;">Type 1 - Escalation</span>
+          <span class="cap-name">Engineering queue</span>
+        </div>
+        <p class="cap-desc">Novel issues are packaged with reproduction details, environment data, and blast-radius context so engineering can act without re-asking for basics.</p>
       </div>
     </div>
   </section>
 
-  <!-- Navigating -->
   <section class="doc-card">
-    <h2 class="doc-h2">Navigating the module</h2>
-    <ul class="route-list">
-      <li *ngFor="let r of routes">
-        <code class="doc-code">{{ r.path }}</code>
-        <span class="route-desc">{{ r.desc }}</span>
-      </li>
-    </ul>
-    <p class="doc-note">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      This module ships with self-contained demo data (<code class="doc-code">ticket-data.ts</code>) and
-      makes no backend calls, so the route loads without authentication. See the
-      <strong>Architecture</strong> tab for the data flow and routing details.
+    <h2 class="doc-h2">Closed Loop Learning</h2>
+    <p class="doc-p" style="margin-bottom: 16px;">
+      The app is designed to show how each action changes the next one. Customer feedback and agent edits update the same live state used by the console and the analytics view.
     </p>
+    <div style="display:flex; flex-direction:column; gap:16px; font-size:14px; color:var(--gray-700); line-height:22px;">
+      <div>
+        <strong style="color:var(--success-700);">Thumbs Up</strong>
+        <div style="margin-left: 12px; margin-top: 4px;">
+          Confirms the fix, closes the ticket, increments the deflection metrics, and increases KB usage for the matching article.
+        </div>
+      </div>
+      <div>
+        <strong style="color:var(--error-700);">Thumbs Down</strong>
+        <div style="margin-left: 12px; margin-top: 4px;">
+          Reopens the ticket, lowers accuracy, and flags the matching KB article for review so the instructions can be improved.
+        </div>
+      </div>
+      <div>
+        <strong style="color:var(--primary-700);">CS approval and KB curation</strong>
+        <div style="margin-left: 12px; margin-top: 4px;">
+          Approved drafts can become better KB entries, and edited articles immediately change how future tickets are matched.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="doc-h2 section-title">How To Test The Demo</h2>
+    <div class="flow-grid">
+      <div class="flow-step">
+        <span class="flow-num">1</span>
+        <div>
+          <div class="flow-title">Try the customer flow</div>
+          <div class="flow-text">Open Customer view, choose "Booking widget missing", and walk through the fix with the assistant.</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">2</span>
+        <div>
+          <div class="flow-title">Trigger a reopen</div>
+          <div class="flow-text">Run the same scenario again and click Thumbs Down to see how the KB gets flagged and the analytics update.</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">3</span>
+        <div>
+          <div class="flow-title">Review the console</div>
+          <div class="flow-text">Switch to the CS console and inspect the Approval Queue, Knowledge Base, Analytics, and Golden Set tabs.</div>
+        </div>
+      </div>
+    </div>
   </section>
 
 </div>

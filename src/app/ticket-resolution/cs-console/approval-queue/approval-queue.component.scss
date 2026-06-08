@@ -50,3 +50,41 @@
     &:hover { background: var(--gray-25, #FCFCFD); }
   }
 }
+
+@media (max-width: 768px) {
+  .route-buckets {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .queue-row.header {
+    display: none;
+  }
+  .queue-row.data {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    
+    > div:nth-child(1) {
+      width: 50px;
+    }
+    > div:nth-child(2) {
+      flex: 1;
+      min-width: 200px;
+    }
+    > div:nth-child(3) {
+      order: 3;
+    }
+    > div:nth-child(4) {
+      order: 4;
+    }
+    > div:nth-child(5) {
+      order: 5;
+    }
+    > svg {
+      margin-left: auto;
+      order: 6;
+    }
+  }
+}
+

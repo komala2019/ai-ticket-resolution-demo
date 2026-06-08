@@ -1,119 +1,255 @@
 <div class="doc-wrap">
 
-  <!-- Hero -->
   <header class="doc-hero">
     <span class="doc-eyebrow">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
       Architecture
     </span>
-    <h1 class="doc-h1">How the feature is built</h1>
+    <h1 class="doc-h1">System Architecture</h1>
     <p class="doc-lede">
-      A single lazy-loaded Angular module with a clean three-layer separation: presentation components,
-      component-local state with pure routing logic, and a static typed data layer. Data flows one way;
-      events bubble up.
+      A single shell bootstraps the TicketResolutionModule. Explore the layout layers, process sequences, key system decisions, and AI roadmap details below.
     </p>
   </header>
 
-  <!-- Layered architecture -->
-  <section>
-    <h2 class="doc-h2 section-title">Layered architecture</h2>
-    <div class="layer-stack">
-      <ng-container *ngFor="let layer of layers; let i = index">
-        <div class="layer" [style.--accent]="layer.accent">
-          <div class="layer-rail"></div>
-          <div class="layer-body">
-            <div class="layer-head">
-              <span class="layer-name">{{ layer.name }}</span>
-              <span class="layer-blurb">{{ layer.blurb }}</span>
+  <!-- Premium Tabs Navigation -->
+  <div class="arch-tabs">
+    <button class="arch-tab" [class.active]="activeTab === 'layers'" (click)="activeTab = 'layers'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/>
+      </svg>
+      Three-Layer Stack
+    </button>
+    <button class="arch-tab" [class.active]="activeTab === 'sequence'" (click)="activeTab = 'sequence'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      Process Flow & Routing
+    </button>
+    <button class="arch-tab" [class.active]="activeTab === 'decisions'" (click)="activeTab = 'decisions'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      Key Decisions
+    </button>
+    <button class="arch-tab" [class.active]="activeTab === 'roadmap'" (click)="activeTab = 'roadmap'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/>
+      </svg>
+      AI Native Roadmap
+    </button>
+  </div>
+
+  <!-- Tab Content -->
+  <div class="arch-tab-content">
+
+    <!-- 1. Layers View -->
+    <div *ngIf="activeTab === 'layers'" class="fade-in">
+      <h2 class="doc-h2 section-title">Three-Layer Architecture</h2>
+      <div class="layer-stack">
+        <ng-container *ngFor="let layer of layers; let i = index">
+          <div class="layer" [style.--accent]="layer.accent">
+            <div class="layer-rail"></div>
+            <div class="layer-body">
+              <div class="layer-head">
+                <span class="layer-name">{{ layer.name }}</span>
+                <span class="layer-blurb">{{ layer.blurb }}</span>
+              </div>
+              <div class="layer-items">
+                <div class="layer-item" *ngFor="let it of layer.items">
+                  <span class="layer-item-label">{{ it.label }}</span>
+                  <span class="layer-item-sub" *ngIf="it.sub">{{ it.sub }}</span>
+                </div>
+              </div>
             </div>
-            <div class="layer-items">
-              <div class="layer-item" *ngFor="let it of layer.items">
-                <span class="layer-item-label">{{ it.label }}</span>
-                <span class="layer-item-sub" *ngIf="it.sub">{{ it.sub }}</span>
+          </div>
+          <div class="layer-arrow" *ngIf="i < layers.length - 1">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          </div>
+        </ng-container>
+      </div>
+    </div>
+
+    <!-- 2. Process Sequence and Routing View -->
+    <div *ngIf="activeTab === 'sequence'" class="fade-in" style="display:flex; flex-direction:column; gap:28px;">
+      <div class="doc-card">
+        <h2 class="doc-h2">Process Sequence</h2>
+        <p class="doc-p" style="margin-bottom: 24px;">
+          The flow below shows how a single issue moves through the system, from customer message to routing decision and final feedback.
+        </p>
+
+        <div class="process-timeline">
+          <div class="process-node">
+            <div class="node-badge user">CUSTOMER</div>
+            <div class="node-content">
+              <div class="node-title">1. Issue described</div>
+              <div class="node-desc">The customer types a plain-language support request in the chat composer, with optional media attached.</div>
+            </div>
+          </div>
+
+          <div class="process-arrow">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          </div>
+
+          <div class="process-node">
+            <div class="node-badge ai">AI AGENT</div>
+            <div class="node-content">
+              <div class="node-title">2. Scoring and matching</div>
+              <div class="node-desc">The classifier compares the query against the active KB, scenario data, and historical tickets to derive confidence.</div>
+            </div>
+          </div>
+
+          <div class="process-arrow">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          </div>
+
+          <div class="process-node decision">
+            <div class="node-badge engine">ROUTING ENGINE</div>
+            <div class="node-content">
+              <div class="node-title">3. Threshold triage</div>
+              <div class="node-desc">The score is routed into one of four live bands:</div>
+
+              <div class="path-split-container">
+                <div class="path-branch happy">
+                  <div class="branch-header">
+                    <span class="branch-tag happy">&gt;= 90% conf</span>
+                    <strong>Auto-resolve</strong>
+                  </div>
+                  <div class="branch-desc">The fix is shown in chat and the ticket closes when the customer confirms it worked.</div>
+                </div>
+
+                <div class="path-branch">
+                  <div class="branch-header">
+                    <span class="branch-tag cs">75-89% conf</span>
+                    <strong>CS approval queue</strong>
+                  </div>
+                  <div class="branch-desc">A rep reviews the draft response, edits it if needed, and approves it before sending.</div>
+                </div>
+
+                <div class="path-branch">
+                  <div class="branch-header">
+                    <span class="branch-tag cs">50-74% conf</span>
+                    <strong>CS rewrite queue</strong>
+                  </div>
+                  <div class="branch-desc">The rep performs a deeper review and can rewrite the response before it reaches the customer.</div>
+                </div>
+
+                <div class="path-branch">
+                  <div class="branch-header">
+                    <span class="branch-tag eng">&lt; 50% conf</span>
+                    <strong>Engineering queue</strong>
+                  </div>
+                  <div class="branch-desc">Novel issues are escalated with diagnostic details, reproduction context, and a P1 handoff.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="process-arrow happy-only">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+            <span class="arrow-lbl">Feedback loop</span>
+          </div>
+
+          <div class="process-node happy">
+            <div class="node-badge success">FEEDBACK LOOP</div>
+            <div class="node-content">
+              <div class="node-title">4. Closed-loop learning</div>
+              <div class="node-desc">Thumbs up closes the loop, thumbs down flags the KB article, and CS edits feed back into the shared live state.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="doc-card">
+        <h2 class="doc-h2">Routing Model</h2>
+        <p class="doc-p" style="margin-bottom:16px;">
+          Every issue receives a confidence score. The triage engine automatically maps that score into one of the live route bands below based on the current threshold settings.
+        </p>
+
+        <div class="engine">
+          <div class="engine-input">
+            <span class="engine-input-num">0-100</span>
+            <span class="engine-input-label">confidence score</span>
+          </div>
+          <svg class="engine-arrow" width="26" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          <div class="engine-fn" style="font-size: 13.5px; font-weight: 700; color: var(--primary-700);">Triage Router</div>
+          <svg class="engine-arrow" width="26" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          <div class="engine-bands">
+            <div class="band" *ngFor="let b of routeBands" [style.border-left-color]="b.hex">
+              <div class="band-top">
+                <span class="band-dot" [style.background]="b.hex"></span>
+                <span class="band-label">{{ b.label }}</span>
+                <span class="band-range">{{ b.range }}</span>
+              </div>
+              <span class="band-human">{{ b.human }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Key Decisions View -->
+    <div *ngIf="activeTab === 'decisions'" class="fade-in">
+      <h2 class="doc-h2 section-title">Key Decisions</h2>
+      <div class="dec-grid">
+        <div class="dec-card" *ngFor="let d of decisions">
+          <div class="dec-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary-600)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            {{ d.title }}
+          </div>
+          <p class="dec-body">{{ d.body }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. AI Native Roadmap View -->
+    <div *ngIf="activeTab === 'roadmap'" class="fade-in">
+      <section class="doc-card" style="margin-top: 10px;">
+        <h2 class="doc-h2" style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/>
+          </svg>
+          AI-Native Implementation & Roadmap
+        </h2>
+        <p class="doc-p" style="margin-bottom: 24px;">
+          Overview of our LLM & Retrieval-Augmented Generation (RAG) backend capabilities. Shows what is currently active in the Express server versus upcoming AI-native architecture layers.
+        </p>
+
+        <div class="roadmap-grid">
+          <div *ngFor="let cat of roadmap" class="roadmap-cat">
+            <div class="roadmap-cat-title">{{ cat.title }}</div>
+            
+            <div class="roadmap-subgrid">
+              <!-- Implemented -->
+              <div class="roadmap-col">
+                <div class="roadmap-status-title">
+                  <span class="status-badge implemented">Implemented</span>
+                </div>
+                <ul class="roadmap-list">
+                  <li *ngFor="let item of cat.implemented">
+                    <strong>{{ item.label }}</strong>
+                    <p>{{ item.desc }}</p>
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Pending -->
+              <div class="roadmap-col">
+                <div class="roadmap-status-title">
+                  <span class="status-badge pending">Pending AI-Native</span>
+                </div>
+                <ul class="roadmap-list">
+                  <li *ngFor="let item of cat.pending">
+                    <strong>{{ item.label }}</strong>
+                    <p>{{ item.desc }}</p>
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
         </div>
-        <div class="layer-arrow" *ngIf="i < layers.length - 1">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
-        </div>
-      </ng-container>
+      </section>
     </div>
-  </section>
 
-  <!-- Classification & routing engine -->
-  <section class="doc-card">
-    <h2 class="doc-h2">Classification &amp; routing engine</h2>
-    <p class="doc-p" style="margin-bottom:16px;">
-      Every ticket gets a confidence score. The pure function
-      <code class="doc-code">routeFor(score, thresholds)</code> buckets that score into one of four routes.
-      The thresholds are live — the Tweaks panel mutates them and the queue re-buckets instantly.
-    </p>
-
-    <div class="engine">
-      <div class="engine-input">
-        <span class="engine-input-num">0–100</span>
-        <span class="engine-input-label">confidence score</span>
-      </div>
-      <svg class="engine-arrow" width="26" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-      <div class="engine-fn"><code class="doc-code">routeFor()</code></div>
-      <svg class="engine-arrow" width="26" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-      <div class="engine-bands">
-        <div class="band" *ngFor="let b of routeBands" [style.border-left-color]="b.hex">
-          <div class="band-top">
-            <span class="band-dot" [style.background]="b.hex"></span>
-            <span class="band-label">{{ b.label }}</span>
-            <span class="band-range">{{ b.range }}</span>
-          </div>
-          <span class="band-human">{{ b.human }}</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Resolution sequence -->
-  <section>
-    <h2 class="doc-h2 section-title">Resolution sequence</h2>
-    <div class="seq">
-      <div class="seq-step" *ngFor="let s of sequence; let last = last">
-        <div class="seq-actor" [style.color]="actorMeta[s.actor].hex" [style.border-color]="actorMeta[s.actor].hex">
-          {{ actorMeta[s.actor].label }}
-        </div>
-        <div class="seq-text">{{ s.text }}</div>
-        <div class="seq-line" *ngIf="!last"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Key decisions -->
-  <section>
-    <h2 class="doc-h2 section-title">Key design decisions</h2>
-    <div class="dec-grid">
-      <div class="dec-card" *ngFor="let d of decisions">
-        <div class="dec-title">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary-600)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          {{ d.title }}
-        </div>
-        <p class="dec-body">{{ d.body }}</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Route registration snippet -->
-  <section class="doc-card">
-    <h2 class="doc-h2">Route registration</h2>
-    <p class="doc-p" style="margin-bottom:14px;">
-      Declared first in <code class="doc-code">app.routes.ts</code>, ahead of the guarded
-      <code class="doc-code">path: ''</code> entry, so the router matches it directly:
-    </p>
-    <pre class="code-block"><span class="c-punc">{{ '{' }}</span> <span class="c-key">path</span>: <span class="c-str">'ticket-resolution'</span>,
-  <span class="c-key">loadChildren</span>: () =&gt; <span class="c-fn">import</span>(<span class="c-str">'./home/ticket-resolution/ticket-resolution.module'</span>)
-    .<span class="c-fn">then</span>(m =&gt; m.TicketResolutionModule) <span class="c-punc">}</span></pre>
-    <p class="doc-note">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      No <code class="doc-code">canActivate: [AuthGuard]</code> — the module is self-contained and
-      renders without a backend, so it never hits the auth redirect.
-    </p>
-  </section>
+  </div>
 
 </div>

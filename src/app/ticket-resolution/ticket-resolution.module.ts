@@ -15,6 +15,7 @@ import { KbManagerComponent } from './cs-console/kb-manager/kb-manager.component
 import { AnalyticsComponent } from './analytics/analytics.component';
 import { ReadmeComponent } from './readme/readme.component';
 import { ArchitectureComponent } from './architecture/architecture.component';
+import { GoldenComponent } from './golden/golden.component';
 
 const routes: Routes = [{ path: '', component: TicketResolutionComponent }];
 
@@ -34,6 +35,7 @@ const routes: Routes = [{ path: '', component: TicketResolutionComponent }];
     AnalyticsComponent,
     ReadmeComponent,
     ArchitectureComponent,
+    GoldenComponent,
   ],
   imports: [
     CommonModule,

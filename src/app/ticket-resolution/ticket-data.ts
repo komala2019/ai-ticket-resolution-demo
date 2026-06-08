@@ -61,6 +61,8 @@ export interface ScenarioStep {
   captured?: { k: string; v: string }[];
   positive?: string;
   negative?: string;
+  attachment?: { name: string; url: string; kind: 'image' | 'video' };
+  agent?: boolean;
 }
 
 export interface Scenario {
@@ -73,6 +75,8 @@ export interface Scenario {
   summary: string;
   jira?: string;
   eta?: string;
+  kbId?: string;
+  ticketId?: string;
   steps: ScenarioStep[];
 }
 
@@ -81,6 +85,8 @@ export const SCENARIOS: Record<string, Scenario> = {
     id: 'type3', label: 'Booking widget missing', type: 3, confidence: 94,
     productArea: 'Booking engine', priority: 'P3',
     summary: 'Booking widget not visible on published homepage',
+    kbId: 'KB-001',
+    ticketId: 'TCK-2041',
     steps: [
       { from: 'user', text: "My booking widget disappeared from my hotel's homepage. Guests can't reserve rooms and I have no idea what changed." },
       { from: 'ai', text: "I can help with that. Let me ask a couple of quick questions so I can pinpoint it — no documentation to dig through." },
@@ -101,6 +107,8 @@ export const SCENARIOS: Record<string, Scenario> = {
     productArea: 'Analytics', priority: 'P2',
     summary: 'Analytics dashboard charts render blank on load',
     jira: 'CS-4821', eta: 'Fix expected in release 3.14 — ~6 days',
+    kbId: 'KB-002',
+    ticketId: 'TCK-2044',
     steps: [
       { from: 'user', text: "My analytics dashboard is completely blank. The charts just show a loading spinner forever and never render." },
       { from: 'ai', kind: 'clarify', text: "Got it. Which browser are you on, and does it happen on every report or one specific dashboard?", chips: ['Chrome — every dashboard', 'Safari — every dashboard', 'Just the Overview dashboard'] },
@@ -117,6 +125,7 @@ export const SCENARIOS: Record<string, Scenario> = {
     id: 'type1', label: 'Salesforce sync broke', type: 1, confidence: 38,
     productArea: 'Integrations', priority: 'P1',
     summary: 'Salesforce lead sync stopped after 3.13 upgrade',
+    ticketId: 'TCK-2048',
     steps: [
       { from: 'user', text: "Our Salesforce integration stopped syncing leads right after your latest update. We've lost a full day of inbound leads and this is business-critical." },
       { from: 'ai', kind: 'clarify', text: "That's serious — let me gather the right context so the team can act fast. When did the last successful sync happen?", chips: ['Yesterday, before the update', 'This morning', "I'm not sure"] },
@@ -150,6 +159,7 @@ export interface QueueTicket {
   evidence: { t: string; m: number }[];
   reopen: number;
   novel?: boolean;
+  status?: 'approved' | 'escalated';
 }
 
 export const QUEUE: QueueTicket[] = [
@@ -180,13 +190,14 @@ export interface KbEntry {
   tags: string[];
   uses: number;
   updated: string;
+  flagged?: boolean;
 }
 
 export const KB: KbEntry[] = [
   {
     id: 'KB-001',
     title: 'Booking widget disappears after hero publish',
-    content: 'When a new hero section is published, the booking widget z-index resets to 0. Workaround: re-save the widget settings after any hero update. Root cause under investigation in CS-4821.',
+    content: 'When a new hero section is published, the booking widget block can revert to Draft visibility. To resolve this, open Content → Homepage → Layout, select the Booking widget block, toggle its settings to Published, and click Publish.',
     tags: ['booking engine', 'widgets', 'publish'],
     uses: 47,
     updated: '2d ago',
@@ -202,7 +213,7 @@ export const KB: KbEntry[] = [
   {
     id: 'KB-003',
     title: 'Email campaign sends twice on rapid segment edit',
-    content: 'A race condition in the segment-save debounce causes a duplicate dispatch when the user edits a segment and triggers send within 800ms. Fixed in 3.14. Offer a manual unsubscribe/credit as remediation.',
+    content: 'A known race condition in the segment-save debounce causes a duplicate dispatch when the user edits a segment and triggers send within 800ms. Fixed in 3.14. Workaround: stagger edits 10+ minutes before send.',
     tags: ['email campaigns', 'segments', 'duplicate send'],
     uses: 12,
     updated: '1d ago',
@@ -224,16 +235,17 @@ export interface Metric {
   sub: string;
   good: boolean;
   baseline: string;
+  target: string;
   pct?: number;
 }
 
 export const METRICS: Metric[] = [
-  { k: 'Deflection rate', now: '63%', delta: '+58 pts', sub: 'closed without Eng', good: true, baseline: '~5% baseline', pct: 63 },
-  { k: 'Avg. time to resolution', now: '1.8 hrs', delta: '−14 days', sub: 'Type 2 / 3 issues', good: true, baseline: '14 days baseline' },
-  { k: 'AI resolution accuracy', now: '87%', delta: '+7 pts', sub: 'no re-open in 7 days', good: true, baseline: 'target ≥ 80%', pct: 87 },
-  { k: 'Cost per ticket', now: '$9.40', delta: '−$18', sub: 'blended', good: true, baseline: '$22–35 baseline' },
-  { k: 'CS tickets / rep / week', now: '34', delta: '−42', sub: 'down from 60–80', good: true, baseline: 'target < 35' },
-  { k: 'Auto-closed (no human)', now: '41%', delta: '+41 pts', sub: 'fully autonomous', good: true, baseline: 'target ≥ 45%', pct: 41 },
+  { k: 'Deflection rate', now: '63%', delta: '+58 pts', sub: 'closed without Eng', good: true, baseline: '~5% baseline', target: '≥ 85%', pct: 63 },
+  { k: 'Avg. time to resolution', now: '1.8 hrs', delta: '−14 days', sub: 'Type 2 / 3 issues', good: true, baseline: '14 days baseline', target: '≤ 2 hrs' },
+  { k: 'AI resolution accuracy', now: '87%', delta: '+7 pts', sub: 'no re-open in 7 days', good: true, baseline: '87% current', target: '≥ 80%', pct: 87 },
+  { k: 'Cost per ticket', now: '$9.40', delta: '−$18', sub: 'blended', good: true, baseline: '$22–35 baseline', target: '≤ $10' },
+  { k: 'CS tickets / rep / week', now: '34', delta: '−42', sub: 'down from 60–80', good: true, baseline: '60–80 baseline', target: '< 35' },
+  { k: 'Auto-closed (no human)', now: '41%', delta: '+41 pts', sub: 'fully autonomous', good: true, baseline: '41% current', target: '≥ 45%', pct: 41 },
 ];
 
 export const TREND = [9, 14, 19, 23, 28, 31, 36, 42, 47, 51, 55, 58, 61, 63];

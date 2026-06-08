@@ -4,7 +4,8 @@
   "description": "AI Ticket Auto-Resolution — standalone demo (runs on bundled data, no backend required)",
   "scripts": {
     "start": "ng serve",
-    "build": "ng build --configuration production"
+    "build": "ng build --configuration production",
+    "debug": "node scripts/debugger/main-debugger.js"
   },
   "private": true,
   "dependencies": {

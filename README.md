@@ -1,67 +1,45 @@
-# AI Ticket Auto-Resolution — Demo
+# AI Ticket Auto-Resolution Demo
 
-An interactive, self-contained demo of the AI Ticket Auto-Resolution concept:
-an AI support layer that classifies incoming issues by confidence and either
-resolves them, drafts a response for a CS rep, or escalates to engineering —
-all with a human-in-the-loop control model.
+An interactive Angular demo of a human-in-the-loop support workflow. It shows how a customer issue moves through self-service, CS review, and engineering escalation while the shared knowledge base and analytics update live.
 
-> **No backend required.** This demo runs entirely on bundled sample data, so
-> it can be hosted as a static site and shared with anyone. (If you point it at
-> a live `/api/ticket-resolution/` backend, it will use real data automatically.)
+> [!NOTE]
+> The demo runs locally with bundled sample data. No backend is required to explore the customer view, CS console, README, or architecture tabs.
 
-## What's inside
+## What You Can Explore
 
-- **Customer view** — a conversational assistant that diagnoses and resolves issues.
-- **CS console** — approval queue, ticket detail, knowledge base manager, analytics.
-- **README & Architecture** — in-app documentation pages.
-- Dark-mode aware; works on desktop and mobile widths.
+- Customer chat with scenario-driven resolutions
+- CS console with Approval Queue, Knowledge Base, Analytics, and Golden Set tabs
+- Live notification bell and threshold tweaks in the shell
+- In-app documentation for the project README and architecture overview
 
-## Run locally
+## How It Works
+
+- Type 3 issues are solved in chat with a direct fix.
+- Type 2 issues get a workaround and ETA for CS follow-up.
+- Type 1 issues are escalated to engineering with the full context attached.
+- Customer feedback feeds the shared state service so metrics, flags, and KB usage counts update immediately.
+
+## Run Locally
+
+Make sure Node.js 18 or newer is installed, then run:
 
 ```bash
 npm install
-npm start
-# open http://localhost:4200
+npm start -- --port 4205
 ```
 
-## Build a static bundle
+Open [http://localhost:4205](http://localhost:4205) in your browser.
+
+## Build
 
 ```bash
-npm install
 npm run build
-# output lands in ./dist
 ```
 
-## Share it (pick one)
+The production bundle is written to `dist-build/`.
 
-### Option A — Netlify Drop (fastest, no account, no git)
-1. Run `npm run build` to produce `./dist`.
-2. Go to https://app.netlify.com/drop
-3. Drag the **`dist`** folder onto the page.
-4. You get an instant public URL to share. Done.
+## Key Source Files
 
-### Option B — GitHub + Netlify (continuous, a stable link)
-1. Push this folder to a new GitHub repo (see below).
-2. In Netlify: **Add new site → Import from Git → pick the repo.**
-3. Netlify reads `netlify.toml` (build command, publish dir, Node 18) and deploys.
-4. Every push redeploys automatically.
-
-```bash
-git init
-git add .
-git commit -m "AI Ticket Auto-Resolution demo"
-git branch -M main
-git remote add origin https://github.com/<you>/<repo>.git
-git push -u origin main
-```
-
-### Option C — any static host
-The `dist` folder is plain static files. Host it on Vercel, GitHub Pages,
-Azure Static Web Apps, S3, etc. Ensure unknown routes fall back to
-`index.html` (the included `_redirects` / `netlify.toml` handle this on Netlify).
-
-## Notes
-
-- Built with Angular 15. Node 18 is recommended for building.
-- This is a standalone copy — it has **no dependency** on any Milestone
-  internal package or private registry.
+- `src/app/ticket-resolution/ticket-data.ts` contains the shared demo data, thresholds, metrics, and scenarios.
+- `src/app/ticket-resolution/demo-state.service.ts` owns the shared live state used across the chat, console, analytics, and notifications.
+- `src/app/ticket-resolution/ticket-resolution.component.ts` controls the shell, view switching, tabs, and toasts.

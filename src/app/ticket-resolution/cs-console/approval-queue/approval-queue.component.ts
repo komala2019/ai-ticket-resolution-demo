@@ -1,13 +1,13 @@
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
-import { QUEUE, ROUTE_META, routeFor, Thresholds, RouteKey } from '../../ticket-data';
-import { TicketResolutionApiService } from '../../ticket-resolution-api.service';
+import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { ROUTE_META, routeFor, Thresholds, RouteKey } from '../../ticket-data';
+import { DemoStateService } from '../../demo-state.service';
 
 @Component({
   selector: 'app-tr-approval-queue',
   templateUrl: './approval-queue.component.html',
   styleUrls: ['./approval-queue.component.scss'],
 })
-export class ApprovalQueueComponent implements OnInit {
+export class ApprovalQueueComponent {
   @Input() thresholds!: Thresholds;
   @Output() openTicket = new EventEmitter<any>();
 
@@ -15,17 +15,14 @@ export class ApprovalQueueComponent implements OnInit {
   routeFor = routeFor;
   filter: RouteKey | null = null;
 
-  /** Loaded from the backend (falls back to the static QUEUE if offline). */
-  queue: any[] = QUEUE.map(t => ({ ...t }));
+  constructor(public demo: DemoStateService) {}
 
-  constructor(private api: TicketResolutionApiService) {}
-
-  ngOnInit() {
-    this.api.getQueue().subscribe(q => { if (q && q.length) this.queue = q; });
-  }
+  /** Live getter — always reads the current shared queue from DemoStateService. */
+  get queue() { return this.demo.queue; }
 
   get sortedQueue() {
     return [...this.queue]
+      .filter(t => !t.status)
       .sort((a, b) => b.confidence - a.confidence)
       .filter(t => !this.filter || routeFor(t.confidence, this.thresholds) === this.filter);
   }
@@ -33,7 +30,7 @@ export class ApprovalQueueComponent implements OnInit {
   get routeOrder(): RouteKey[] { return ['auto', 'approve', 'rewrite', 'eng']; }
 
   countFor(r: RouteKey) {
-    return this.queue.filter(t => routeFor(t.confidence, this.thresholds) === r).length;
+    return this.queue.filter(t => !t.status && routeFor(t.confidence, this.thresholds) === r).length;
   }
 
   toggleFilter(r: RouteKey) {

@@ -6,6 +6,7 @@ import {
   Thresholds, Scenario, QueueTicket, KbEntry, Metric,
   SCENARIOS, SCENARIO_ORDER, QUEUE, KB, METRICS, TREND,
 } from './ticket-data';
+import { DemoStateService } from './demo-state.service';
 
 /** Result of the classify endpoint (the "AI" entry point). */
 export interface ClassifyResponse {
@@ -36,6 +37,15 @@ export interface TicketActionResult {
   ticket?: QueueTicket;
 }
 
+export interface ChatResponse {
+  ok: boolean;
+  route?: string;
+  answer?: string;
+  confidence?: number;
+  model?: string;
+  traceId?: string;
+}
+
 /**
  * Talks to the .NET backend at /api/ticket-resolution/*.
  *
@@ -52,7 +62,7 @@ export class TicketResolutionApiService {
   /** Fail fast so a down/slow backend never leaves the UI hanging. */
   private readonly TIMEOUT = 5000;
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private demo: DemoStateService) {
     // Standalone demo: no backend is deployed, so these calls fail fast and the
     // service falls back to the bundled data. Point this at a real
     // /api/ticket-resolution/ host to go live.
@@ -92,11 +102,25 @@ export class TicketResolutionApiService {
       .pipe(timeout(this.TIMEOUT), catchError(() => of(null)));
   }
 
+  chat(message: string): Observable<ChatResponse> {
+    return this.http.post<ChatResponse>('http://localhost:3001/api/chat', { message }, { headers: this.headers })
+      .pipe(
+        timeout(10000),
+        catchError(() => of({
+          ok: false,
+          route: 'fallback',
+          answer: 'The live assistant is currently unavailable. The demo flow is still available for exploration.',
+          confidence: 0,
+          model: 'demo-fallback',
+        })),
+      );
+  }
+
   // --- Queue ---------------------------------------------------------------
 
   getQueue(): Observable<QueueTicket[]> {
     return this.http.get<QueueTicket[]>(this.base + 'queue')
-      .pipe(timeout(this.TIMEOUT), catchError(() => of(QUEUE as QueueTicket[])));
+      .pipe(timeout(this.TIMEOUT), catchError(() => of(this.demo.queue)));
   }
 
   getQueueCounts(fallback: Record<string, number>): Observable<Record<string, number>> {
@@ -123,7 +147,7 @@ export class TicketResolutionApiService {
 
   getKnowledgeBase(): Observable<KbEntry[]> {
     return this.http.get<KbEntry[]>(this.base + 'kb')
-      .pipe(timeout(this.TIMEOUT), catchError(() => of(KB.map(e => ({ ...e })))));
+      .pipe(timeout(this.TIMEOUT), catchError(() => of(this.demo.kb)));
   }
 
   createKbEntry(entry: KbEntry): Observable<KbEntry | null> {
@@ -145,7 +169,7 @@ export class TicketResolutionApiService {
 
   getMetrics(): Observable<Metric[]> {
     return this.http.get<Metric[]>(this.base + 'metrics')
-      .pipe(timeout(this.TIMEOUT), catchError(() => of(METRICS)));
+      .pipe(timeout(this.TIMEOUT), catchError(() => of(this.demo.getMetrics())));
   }
 
   getTrend(): Observable<number[]> {

@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter, OnChanges } from '@angular/core';
 import { TYPE_META, ROUTE_META, routeFor, Thresholds } from '../../ticket-data';
-import { TicketResolutionApiService } from '../../ticket-resolution-api.service';
+import { DemoStateService } from '../../demo-state.service';
 
 @Component({
   selector: 'app-tr-ticket-detail',
@@ -18,16 +18,18 @@ export class TicketDetailComponent implements OnChanges {
   ROUTE_META = ROUTE_META;
   routeFor = routeFor;
 
-  constructor(private api: TicketResolutionApiService) {}
+  constructor(private demo: DemoStateService) {}
 
   editing = false;
   draft = '';
   status: 'approved' | 'escalated' | null = null;
+  learnFromResponse = false;
 
   ngOnChanges() {
     this.draft = this.ticket?.draft ?? '';
     this.editing = false;
     this.status = null;
+    this.learnFromResponse = false;
   }
 
   get route() { return routeFor(this.ticket.confidence, this.thresholds); }
@@ -37,9 +39,31 @@ export class TicketDetailComponent implements OnChanges {
   approve() {
     this.status = 'approved';
     if (this.ticket) this.ticket.status = 'approved';
-    // Persist to backend so the analytics dashboard reflects the resolution.
-    this.api.approveTicket(this.ticket.id).subscribe();
-    this.toastEvent.emit({ msg: 'Response approved and sent to ' + this.ticket.customer.split(' ')[0], tone: 'green' });
+    // Feedback loop → analytics: an approval counts as a resolution.
+    this.demo.recordResolved(this.ticket?.id);
+
+    if (this.learnFromResponse) {
+      // Auto-train the AI by creating a KB article
+      const entryId = 'KB-Cust-' + String(this.demo.kb.length + 1).padStart(3, '0');
+      const entry = {
+        id: entryId,
+        title: this.ticket.subject,
+        content: this.draft,
+        tags: [this.ticket.area.toLowerCase()],
+        uses: 1,
+        updated: 'just now',
+      };
+      this.demo.addKb(entry);
+      this.demo.notify(
+        'AI auto-trained 🧠',
+        `Created KB article "${this.ticket.subject}" from resolution edits to automate future tickets.`,
+        'green'
+      );
+      this.toastEvent.emit({ msg: 'AI successfully trained on this resolution!', tone: 'green' });
+    } else {
+      this.demo.notify('Response approved', 'Sent to ' + this.ticket.customer.split(' ')[0] + ' · ' + this.ticket.id, 'green');
+      this.toastEvent.emit({ msg: 'Response approved and sent to ' + this.ticket.customer.split(' ')[0], tone: 'green' });
+    }
   }
 
   saveEdit() {
@@ -59,7 +83,8 @@ export class TicketDetailComponent implements OnChanges {
     } else {
       this.status = 'escalated';
       this.ticket.status = 'escalated';
-      this.api.escalateTicket(this.ticket.id, 'Engineering').subscribe();
+      this.demo.recordEscalated(this.ticket.id);
+      this.demo.notify('Escalated to Engineering', this.ticket.id + ' routed with full context · 4-hr SLA', 'purple');
       this.toastEvent.emit({ msg: 'Escalated to Eng with full context', tone: 'purple' });
     }
   }

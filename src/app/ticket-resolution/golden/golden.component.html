@@ -1,0 +1,204 @@
+<div class="golden-container">
+  <!-- Header with Summary Metrics -->
+  <div class="golden-header-card" title="Golden Set summary and regression suite overview.">
+    <div class="golden-header-left">
+      <div class="golden-badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        Regression Suite
+      </div>
+      <h1 class="golden-title">Golden Set Panel</h1>
+      <p class="golden-subtitle" style="margin-bottom: 12px;">
+        Curated, expert-labeled scenarios executed live against your active Knowledge Base and confidence thresholds.
+        Re-runs instantly when you update articles or drag sliders.
+      </p>
+      <button class="golden-primary-btn" (click)="showAdd = !showAdd" style="margin-top: 8px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        Add prompt
+      </button>
+    </div>
+
+    <div class="golden-stats">
+      <div class="stat-box">
+        <div class="stat-value" [class.perfect]="passCount === total">{{ passRate }}%</div>
+        <div class="stat-label">Pass Rate</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-box">
+        <div class="stat-value">{{ passCount }}/{{ total }}</div>
+        <div class="stat-label">Passed Cases</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Case Form Card -->
+  <div *ngIf="showAdd" class="golden-add-card" title="Create a new expert-labeled test case for the regression suite.">
+    <div class="form-title">New Golden Case</div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label class="form-lbl">User Prompt / Ticket Input</label>
+        <input [(ngModel)]="newPrompt" placeholder="E.g. Salesforce lead sync stopped working..." class="form-input" />
+      </div>
+      <div class="form-row-group">
+        <div class="form-row">
+          <label class="form-lbl">Category</label>
+          <select [(ngModel)]="newCategory" class="form-select">
+            <option value="solvable">Type 3 · Solvable</option>
+            <option value="known">Type 2 · Known</option>
+            <option value="novel">Type 1 · Novel</option>
+            <option value="edge">Edge case</option>
+            <option value="adversarial">Adversarial</option>
+          </select>
+        </div>
+        <div class="form-row" style="flex-direction:row;align-items:center;gap:8px;padding-top:20px;">
+          <input type="checkbox" id="escalateCheck" [(ngModel)]="newExpectEscalate" class="form-checkbox" />
+          <label for="escalateCheck" class="form-lbl-checkbox">Expect Escalation</label>
+        </div>
+        <div class="form-row">
+          <label class="form-lbl">Expect Type</label>
+          <select [(ngModel)]="newExpectType" class="form-select">
+            <option [ngValue]="3">Type 3 (Solvable)</option>
+            <option [ngValue]="2">Type 2 (Known)</option>
+            <option [ngValue]="1">Type 1 (Novel)</option>
+            <option [ngValue]="null">Any / None</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-lbl">Expected Outcome Note</label>
+        <input [(ngModel)]="newNote" placeholder="E.g. Should escalate since Salesforce CRM isn't covered in the KB." class="form-input" />
+      </div>
+      <div class="form-actions">
+        <button class="golden-primary-btn" [disabled]="!newPrompt.trim()" (click)="addCase()">Save Case</button>
+        <button class="golden-ghost-btn" (click)="showAdd = false">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Explanatory Callout -->
+  <div class="golden-callout">
+    <div style="display: flex; gap: 12px; align-items: flex-start;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-600)" stroke-width="2" style="flex-shrink:0;margin-top:2px;">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="16" x2="12" y2="12"></line>
+        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+      </svg>
+      <div>
+        <div style="font-weight: 700; color: var(--gray-900); font-size: 14px; margin-bottom: 4px;">Understanding Classifier Feedback Loops</div>
+        <p style="margin: 0; font-size: 13px; color: var(--gray-600); line-height: 19px;">
+          What happens when you add a knowledge article? 
+          For example, <strong>G-05</strong> (Salesforce sync broke) currently escalates because there is no matching KB article. 
+          If you go to the <strong>Knowledge base</strong> manager and add an article for Salesforce Lead Sync, 
+          the live classifier will instantly start matching G-05 with high confidence. This routes it to customer self-service (Type 3) or workaround (Type 2), causing the regression suite status for G-05 to <strong>Fail</strong> (since G-05 expects escalation).
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Suite Progress Bar -->
+  <div class="progress-bar-wrapper">
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" [style.width.%]="passRate" [class.perfect]="passCount === total"></div>
+    </div>
+    <div class="progress-bar-text">
+      <span *ngIf="passCount === total" class="text-success">
+        🎉 All {{ total }} test cases are passing. The classifier is fully aligned.
+      </span>
+      <span *ngIf="passCount < total" class="text-warning">
+        ⚠️ {{ total - passCount }} regression{{ (total - passCount) !== 1 ? 's' : '' }} detected. Edit your KB or adjust thresholds to resolve.
+      </span>
+    </div>
+  </div>
+
+  <!-- Case List -->
+  <div class="cases-card" title="Live regression results for each golden test case.">
+    <div class="cases-header">
+      <div class="header-col col-id">ID</div>
+      <div class="header-col col-prompt">Test Case / Prompt</div>
+      <div class="header-col col-expected">Expected Behavior</div>
+      <div class="header-col col-actual">Live Behavior</div>
+      <div class="header-col col-status">Status</div>
+    </div>
+
+    <div class="cases-list">
+      <div *ngFor="let r of rows" class="case-row" [class.failing-row]="!r.pass">
+        <!-- ID & Category -->
+        <div class="cell-col col-id">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="case-id">{{ r.c.id }}</span>
+            <button *ngIf="r.c.id.startsWith('G-Cust-')" class="del-cust-btn" (click)="deleteCustom(r.c.id)" title="Remove custom case">×</button>
+          </div>
+          <span class="cat-badge" [attr.data-cat]="r.c.category">{{ catLabel[r.c.category] || r.c.category }}</span>
+        </div>
+
+        <!-- Prompt & Expected Note -->
+        <div class="cell-col col-prompt">
+          <div class="case-prompt">"{{ r.c.prompt }}"</div>
+          <div class="case-note">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; display: inline-block; vertical-align: middle;">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            {{ r.c.note }}
+          </div>
+        </div>
+
+        <!-- Expected behavior details -->
+        <div class="cell-col col-expected">
+          <div class="expected-item">
+            <span class="lbl">Route:</span>
+            <span class="val">{{ r.c.expectEscalate ? 'Escalate (Human)' : 'Self-Serve (AI)' }}</span>
+          </div>
+          <div class="expected-item" *ngIf="r.c.expectType">
+            <span class="lbl">Type:</span>
+            <span class="val">Type {{ r.c.expectType }}</span>
+          </div>
+        </div>
+
+        <!-- Live classification details -->
+        <div class="cell-col col-actual">
+          <div class="actual-item">
+            <span class="lbl">Live:</span>
+            <span class="val" [class.escalated]="r.escalated" [class.resolved]="!r.escalated">
+              {{ r.escalated ? 'Escalated' : 'Self-Served' }}
+            </span>
+          </div>
+          <div class="actual-item">
+            <span class="lbl">Type:</span>
+            <span class="val font-semibold">Type {{ r.type }}</span>
+          </div>
+          <div class="actual-item confidence-wrap">
+            <span class="lbl">Conf:</span>
+            <div class="conf-bar-bg">
+              <div class="conf-bar-fill" [style.width.%]="r.confidence" [attr.data-route]="r.route"></div>
+            </div>
+            <span class="val conf-num">{{ r.confidence }}%</span>
+          </div>
+        </div>
+
+        <!-- Pass / Fail status badge -->
+        <div class="cell-col col-status">
+          <div *ngIf="r.pass" class="status-pill pass">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Pass
+          </div>
+          <div *ngIf="!r.pass" class="status-pill fail">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            Fail
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

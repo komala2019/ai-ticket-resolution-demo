@@ -12,7 +12,7 @@
   </div>
 
   <!-- Add form -->
-  <div *ngIf="showAdd" class="kb-card" style="border-color:var(--primary-200);box-shadow:0 0 0 3px rgba(41,112,255,.1);">
+  <div *ngIf="showAdd" class="kb-card" style="border-color:var(--primary-200);box-shadow:0 0 0 3px rgba(41,112,255,.1);" title="Add a new knowledge-base article to improve future matches.">
     <div style="font-size:13.5px;font-weight:600;color:var(--gray-800);margin-bottom:14px;">New article</div>
     <div style="display:flex;flex-direction:column;gap:12px;">
       <input [(ngModel)]="newTitle" placeholder="Article title" class="kb-input" />
@@ -45,7 +45,12 @@
       <ng-container *ngIf="editId !== e.id">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
           <div style="flex:1;min-width:0;">
-            <div style="font-size:15.5px;font-weight:700;color:var(--gray-900);margin-bottom:5px;">{{ e.title }}</div>
+            <div style="font-size:15.5px;font-weight:700;color:var(--gray-900);margin-bottom:5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              {{ e.title }}
+              <span *ngIf="e.flagged" class="kb-flagged-badge">
+                ⚠️ Needs Review (Requires Instruction Updates)
+              </span>
+            </div>
             <p style="margin:0 0 10px;font-size:14px;color:var(--gray-600);line-height:21px;">{{ e.content }}</p>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <span *ngFor="let tag of e.tags" class="kb-tag">{{ tag }}</span>

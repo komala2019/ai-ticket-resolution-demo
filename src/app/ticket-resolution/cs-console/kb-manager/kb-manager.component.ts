@@ -1,20 +1,13 @@
-import { Component, OnInit } from '@angular/core';
-import { KB, KbEntry } from '../../ticket-data';
-import { TicketResolutionApiService } from '../../ticket-resolution-api.service';
+import { Component } from '@angular/core';
+import { KbEntry } from '../../ticket-data';
+import { DemoStateService } from '../../demo-state.service';
 
 @Component({
   selector: 'app-tr-kb-manager',
   templateUrl: './kb-manager.component.html',
   styleUrls: ['./kb-manager.component.scss'],
 })
-export class KbManagerComponent implements OnInit {
-  entries: KbEntry[] = KB.map(e => ({ ...e }));
-
-  constructor(private api: TicketResolutionApiService) {}
-
-  ngOnInit() {
-    this.api.getKnowledgeBase().subscribe(list => { if (list && list.length) this.entries = list; });
-  }
+export class KbManagerComponent {
   query = '';
   editId: string | null = null;
   editTitle = '';
@@ -26,6 +19,12 @@ export class KbManagerComponent implements OnInit {
   newContent = '';
   newTags = '';
 
+  // The shared, live knowledge base — the SAME list the chat classifier reads,
+  // so anything added/edited here immediately changes how issues resolve.
+  constructor(public demo: DemoStateService) {}
+
+  get entries(): KbEntry[] { return this.demo.kb; }
+
   get totalUses(): number { return this.entries.reduce((s, e) => s + (e.uses || 0), 0); }
 
   get filtered() {
@@ -34,7 +33,7 @@ export class KbManagerComponent implements OnInit {
     return this.entries.filter(e =>
       e.title.toLowerCase().includes(q) ||
       e.content.toLowerCase().includes(q) ||
-      e.tags.some((t: string) => t.toLowerCase().includes(q))
+      e.tags.some((t: string) => t.toLowerCase().includes(q)),
     );
   }
 
@@ -46,11 +45,14 @@ export class KbManagerComponent implements OnInit {
   }
 
   saveEdit() {
-    const e = this.entries.find(x => x.id === this.editId);
-    if (e) {
-      e.title = this.editTitle; e.content = this.editContent; e.tags = [...this.editTags];
-      // Persist to backend (best-effort; local state already updated).
-      this.api.updateKbEntry(e.id, e).subscribe();
+    if (this.editId) {
+      this.demo.updateKb(this.editId, {
+        title: this.editTitle,
+        content: this.editContent,
+        tags: [...this.editTags],
+        updated: 'just now',
+        flagged: false,
+      });
     }
     this.editId = null;
   }
@@ -58,6 +60,7 @@ export class KbManagerComponent implements OnInit {
   cancelEdit() { this.editId = null; }
 
   addEntry() {
+    if (!this.newTitle.trim()) { this.showAdd = false; return; }
     const id = 'KB-' + String(this.entries.length + 1).padStart(3, '0');
     const entry: KbEntry = {
       id,
@@ -67,14 +70,13 @@ export class KbManagerComponent implements OnInit {
       uses: 0,
       updated: 'just now',
     };
-    this.entries.push(entry);
+    this.demo.addKb(entry);
+    this.demo.notify('Knowledge article added', entry.title + ' is now live — the assistant can match against it.', 'green');
     this.newTitle = ''; this.newContent = ''; this.newTags = '';
     this.showAdd = false;
-    // Persist; if the backend assigns a different id, reconcile it.
-    this.api.createKbEntry(entry).subscribe(created => {
-      if (created && created.id && created.id !== entry.id) entry.id = created.id;
-    });
   }
+
+  removeEntry(e: KbEntry) { this.demo.deleteKb(e.id); }
 
   removeTag(i: number) { this.editTags.splice(i, 1); }
 

@@ -89,7 +89,8 @@
   padding: 10px 13px;
   font-size: 14.5px;
   line-height: 22px;
-  color: var(--gray-700);
+  background: var(--gray-50, #fff);
+  color: var(--gray-900, #101828);
   font-family: inherit;
   resize: vertical;
   box-sizing: border-box;
@@ -122,3 +123,13 @@
   &.block { flex: 1; }
   &:not(.primary):hover { background: var(--gray-50); }
 }
+
+@media (max-width: 768px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .detail-grid > div:nth-child(2) {
+    position: static !important;
+  }
+}
+

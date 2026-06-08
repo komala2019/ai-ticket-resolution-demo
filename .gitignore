@@ -1,7 +1,11 @@
-/node_modules
+node_modules/
 /dist
 /out-tsc
 /.angular
 npm-debug.log*
 .DS_Store
 Thumbs.db
+/.vs
+/dist-build
+/debugger_report.md
+*.log

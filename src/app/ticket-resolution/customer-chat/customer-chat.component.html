@@ -9,7 +9,7 @@
         </svg>
       </span>
       <div style="flex:1;">
-        <div style="font-size:15px;font-weight:700;color:var(--gray-900);">Milestone Assistant</div>
+        <div style="font-size:15px;font-weight:700;color:var(--gray-900);">Mile Assistant</div>
         <div style="font-size:12.5px;color:var(--gray-500);display:inline-flex;align-items:center;gap:6px;">
           <span class="online-dot"></span>
           Replies in seconds · resolves most issues without a form
@@ -42,6 +42,17 @@
 
     <!-- Messages -->
     <div class="chat-messages" #scrollEl>
+      <div *ngIf="liveAnswer" class="msg-row ai">
+        <span class="ai-avatar sz30"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg></span>
+        <div class="ai-card" style="flex:1;min-width:0;" title="Live answer returned by the backend assistant.">
+          <div class="ai-card-accent" style="background:var(--primary-600)"></div>
+          <div style="padding:16px;">
+            <div style="font-size:12px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Live assistant</div>
+            <div style="font-size:14px;color:var(--gray-800);line-height:22px;white-space:pre-wrap;">{{ liveAnswer }}</div>
+          </div>
+        </div>
+      </div>
+
       <ng-container *ngFor="let step of visible; let i = index">
         <!-- Thinking -->
         <div *ngIf="step.kind === 'thinking'" class="msg-thinking">
@@ -65,7 +76,7 @@
               <path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/>
             </svg>
           </span>
-          <div class="ai-card" style="flex:1;min-width:0;">
+          <div class="ai-card" style="flex:1;min-width:0;" title="AI classification summary for this ticket.">
             <div class="ai-card-accent" [style.background]="TYPE_META[scenario.type].hex"></div>
             <div style="padding:16px;">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
@@ -97,7 +108,7 @@
         <!-- Resolution card -->
         <div *ngIf="step.kind === 'resolution'" class="msg-row ai">
           <span class="ai-avatar sz30"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg></span>
-          <div class="ai-card" style="flex:1;min-width:0;">
+          <div class="ai-card" style="flex:1;min-width:0;" title="AI resolution guidance and next steps for the customer.">
             <div class="ai-card-accent" style="background:var(--success-500)"></div>
             <div style="padding:16px;">
               <div style="display:flex;gap:10px;margin-bottom:10px;">
@@ -122,7 +133,7 @@
         <!-- Known card -->
         <div *ngIf="step.kind === 'known'" class="msg-row ai">
           <span class="ai-avatar sz30"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg></span>
-          <div class="ai-card" style="flex:1;min-width:0;">
+          <div class="ai-card" style="flex:1;min-width:0;" title="Known issue workaround and expected resolution time.">
             <div class="ai-card-accent" style="background:var(--warning-500)"></div>
             <div style="padding:16px;">
               <div style="display:flex;gap:10px;margin-bottom:10px;">
@@ -158,7 +169,7 @@
         <!-- Novel card -->
         <div *ngIf="step.kind === 'novel'" class="msg-row ai">
           <span class="ai-avatar sz30"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg></span>
-          <div class="ai-card" style="flex:1;min-width:0;">
+          <div class="ai-card" style="flex:1;min-width:0;" title="Novel issue escalation details and captured evidence.">
             <div class="ai-card-accent" style="background:#7A5AF8"></div>
             <div style="padding:16px;">
               <div style="display:flex;gap:10px;margin-bottom:12px;">
@@ -188,25 +199,37 @@
 
         <!-- Regular text message -->
         <div *ngIf="!step.kind" class="msg-row" [class.user]="step.from === 'user'" [class.ai]="step.from === 'ai'">
-          <span *ngIf="step.from === 'ai'" class="ai-avatar sz30"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg></span>
-          <div class="bubble" [class.user]="step.from === 'user'" [class.ai]="step.from === 'ai'">{{ step.text }}</div>
+          <span *ngIf="step.from === 'ai'" class="ai-avatar sz30" [class.agent]="step.agent">
+            <svg *ngIf="!step.agent" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg>
+            <svg *ngIf="step.agent" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </span>
+          <div class="bubble" [class.user]="step.from === 'user'" [class.ai]="step.from === 'ai'">
+            <div *ngIf="step.agent" class="agent-label">Maya · Support specialist</div>
+            <ng-container *ngIf="step.text">{{ step.text }}</ng-container>
+            <!-- Attachment preview -->
+            <div *ngIf="step.attachment" class="attachment">
+              <img *ngIf="step.attachment.kind === 'image'" [src]="step.attachment.url" [alt]="step.attachment.name" />
+              <video *ngIf="step.attachment.kind === 'video'" [src]="step.attachment.url" controls></video>
+              <span class="attachment-name">{{ step.attachment.name }}</span>
+            </div>
+          </div>
         </div>
       </ng-container>
 
       <!-- Confirm block -->
       <div *ngIf="pendingConfirm" class="msg-row ai">
         <span class="ai-avatar sz30"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg></span>
-        <div class="ai-card" style="flex:1;min-width:0;">
+        <div class="ai-card" style="flex:1;min-width:0;" title="Customer confirmation card for resolving or rejecting the fix.">
           <div style="padding:16px;">
-            <div style="font-size:14.5px;color:var(--gray-800);line-height:21px;margin-bottom:12px;">{{ last?.text }}</div>
-            <div style="display:flex;gap:10px;">
-              <button class="confirm-btn yes" (click)="onYes()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-                {{ last?.positive || 'This fixed it' }}
+            <div style="font-size:14.5px;color:var(--gray-800);line-height:21px;margin-bottom:12px;font-weight:600;">{{ last?.text }}</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <button class="confirm-btn feedback-thumbs-btn thumbs-up" (click)="onYes()" title="Thumbs Up - Resolved">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                Thumbs Up (Fixed)
               </button>
-              <button class="confirm-btn no" (click)="onNo()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
-                {{ last?.negative || 'Still having issues' }}
+              <button class="confirm-btn feedback-thumbs-btn thumbs-down" (click)="onNo()" title="Thumbs Down - Still Broken">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+                Thumbs Down (Still Broken)
               </button>
             </div>
           </div>
@@ -216,7 +239,7 @@
       <!-- Outcome card -->
       <div *ngIf="outcome" class="msg-row ai">
         <span class="ai-avatar sz30"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg></span>
-        <div class="ai-card" style="flex:1;min-width:0;" *ngIf="outcomeData(outcome) as od">
+        <div class="ai-card" style="flex:1;min-width:0;" *ngIf="outcomeData(outcome) as od" title="Outcome summary showing the result of the resolution flow.">
           <div class="ai-card-accent" [style.background]="od.color"></div>
           <div style="padding:16px;">
             <div style="display:flex;gap:10px;align-items:flex-start;">
@@ -246,10 +269,27 @@
       <div *ngIf="pendingClarify" class="chips-row">
         <button *ngFor="let c of last?.chips" class="clarify-chip" (click)="onChip()">{{ c }}</button>
       </div>
+
+      <!-- Staged attachment preview -->
+      <div *ngIf="pendingAttachment && !pendingClarify" class="attach-chip">
+        <svg *ngIf="pendingAttachment.kind==='image'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        <svg *ngIf="pendingAttachment.kind==='video'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        {{ pendingAttachment.name }}
+        <button class="attach-remove" (click)="clearAttachment()" aria-label="Remove attachment">×</button>
+      </div>
+
       <div *ngIf="!pendingClarify" class="composer">
+        <label class="attach-btn" title="Attach image or video">
+          <input type="file" accept="image/*,video/*" hidden (change)="onAttach($event)" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        </label>
         <input [(ngModel)]="composerText" (keyup.enter)="onSend()"
                placeholder="Describe your issue in plain language…" />
-        <span class="send-icon" (click)="onSend()" [style.cursor]="'pointer'" [style.opacity]="composerText.trim() ? 1 : 0.5">
+        <button class="human-btn" (click)="requestAgent()" [disabled]="agentJoined" title="Talk to a human">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          {{ agentJoined ? 'Agent joined' : 'Human' }}
+        </button>
+        <span class="send-icon" (click)="onSend()" [style.cursor]="'pointer'" [style.opacity]="(composerText.trim() || pendingAttachment) ? 1 : 0.5">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </span>
       </div>

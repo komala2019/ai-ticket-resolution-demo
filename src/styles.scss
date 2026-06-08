@@ -2,7 +2,8 @@
    relies on via var(--...). The module supplies its own dark-mode overrides
    on .tr-shell, so only the light base is defined here. */
 :root {
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 
   /* Gray */
   --gray-25:  #FCFCFD;

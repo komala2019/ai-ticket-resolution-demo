@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { TicketResolutionApiService } from '../../ticket-resolution-api.service';
+import { DemoStateService } from '../../demo-state.service';
 
 @Component({
   selector: 'app-tr-escalate-modal',
@@ -11,7 +11,7 @@ export class EscalateModalComponent {
   @Output() close = new EventEmitter<void>();
   @Output() toastEvent = new EventEmitter<{ msg: string; tone: string }>();
 
-  constructor(private api: TicketResolutionApiService) {}
+  constructor(private demo: DemoStateService) {}
 
   teams = [
     { id: 'eng',     label: 'Engineering',   icon: 'code',    desc: 'Bug or platform defect' },
@@ -30,8 +30,9 @@ export class EscalateModalComponent {
     const team = this.teams.find(t => t.id === this.selectedTeam)!;
     if (this.ticket) {
       this.ticket.status = 'escalated';
-      // Persist so the analytics dashboard reflects the escalation.
-      this.api.escalateTicket(this.ticket.id, team.label, this.note).subscribe();
+      // Feedback loop → analytics.
+      this.demo.recordEscalated(this.ticket.id);
+      this.demo.notify('Escalated to ' + team.label, (this.ticket.id || '') + ' · 4-hr ack SLA', 'purple');
     }
     this.toastEvent.emit({ msg: `Escalated to ${team.label} · 4-hr ack SLA`, tone: 'purple' });
     setTimeout(() => this.close.emit(), 1400);

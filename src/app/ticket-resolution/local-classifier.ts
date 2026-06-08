@@ -8,7 +8,7 @@
 //
 // NOTE: confidence here is an explainable heuristic, not a learned probability.
 
-import { KB, KbEntry, Thresholds, routeFor, TYPE_META } from './ticket-data';
+import { KbEntry, Thresholds, routeFor } from './ticket-data';
 import { Scenario, ScenarioStep } from './ticket-data';
 
 const AREA_KEYWORDS: Record<string, string[]> = {
@@ -32,12 +32,33 @@ const STOP = new Set([
 
 interface ScoredEntry { entry: KbEntry; score: number; }
 
+/** Normalize a word: lowercase, strip a simple plural/verb suffix so
+ *  "campaigns"/"sending"/"charged" loosely match "campaign"/"send"/"charge". */
+function norm(w: string): string {
+  w = w.toLowerCase();
+  if (w.length > 5 && w.endsWith('ing')) w = w.slice(0, -3);
+  else if (w.length > 4 && w.endsWith('ed')) w = w.slice(0, -2);
+  else if (w.length > 3 && w.endsWith('s')) w = w.slice(0, -1);
+  return w;
+}
+
 function tokenize(text: string): Set<string> {
   if (!text) return new Set();
   return new Set(
     text.split(/[\s.,;:!?()'"\-/]+/)
-      .filter(w => w.length > 2 && !STOP.has(w)),
+      .filter(w => w.length > 2 && !STOP.has(w))
+      .map(norm)
+      .filter(w => w.length > 2),
   );
+}
+
+/** Tag phrases split into individual normalized words (so "duplicate send"
+ *  contributes "duplicate" and "send" separately). */
+function tagWords(tags: string[]): Set<string> {
+  const out = new Set<string>();
+  (tags || []).forEach(tag =>
+    tag.split(/[\s/]+/).forEach(w => { if (w.length > 2) out.add(norm(w)); }));
+  return out;
 }
 
 function detectArea(haystack: string): string | null {
@@ -50,26 +71,36 @@ function detectArea(haystack: string): string | null {
   return bestArea;
 }
 
-function scoreKb(haystack: string): ScoredEntry[] {
+function scoreKb(haystack: string, kb: KbEntry[]): ScoredEntry[] {
   const tokens = tokenize(haystack);
   const results: ScoredEntry[] = [];
-  for (const entry of KB) {
-    const entryTokens = tokenize(((entry.title || '') + ' ' + (entry.content || '')).toLowerCase());
-    let titleOverlap = 0;
-    tokens.forEach(t => { if (entryTokens.has(t)) titleOverlap++; });
-    const tagHits = (entry.tags || []).filter(tag => haystack.includes(tag.toLowerCase())).length;
-    if (titleOverlap === 0 && tagHits === 0) continue;
-    const denom = Math.max(6, entryTokens.size * 0.35);
-    const tokenScore = Math.min(1, titleOverlap / denom);
-    const tagScore = Math.min(1, tagHits / 2);
-    let score = Math.round((tagScore * 0.6 + tokenScore * 0.4) * 100);
-    score = Math.max(1, Math.min(99, score));
+  for (const entry of kb) {
+    const entryTokens = tokenize((entry.title || '') + ' ' + (entry.content || ''));
+    const tags = tagWords(entry.tags || []);
+
+    let overlap = 0;     // meaningful words shared with title/content
+    let tagOverlap = 0;  // shared with tag words (stronger signal)
+    tokens.forEach(t => {
+      if (entryTokens.has(t)) overlap++;
+      if (tags.has(t)) tagOverlap++;
+    });
+
+    if (overlap === 0 && tagOverlap === 0) continue;
+
+    // Tag matches count double. ~3 solid matches is a confident hit.
+    const matches = overlap + tagOverlap;
+    let score = Math.round(Math.min(1, matches / 3) * 90);
+    if (matches > 0) score += 6;            // floor for any real overlap
+    score = Math.max(1, Math.min(97, score));
     results.push({ entry, score });
   }
   return results.sort((a, b) => b.score - a.score);
 }
 
 function mentionsKnownBug(e: KbEntry): boolean {
+  if (e.id && e.id.startsWith('KB-Cust-')) {
+    return false;
+  }
   const c = (e.content || '').toLowerCase();
   return c.includes('known') || c.includes('bug') || c.includes('fix shipped') ||
     c.includes('workaround') || (e.tags || []).some(t => t.includes('bug'));
@@ -89,19 +120,22 @@ export interface LocalClassifyResult {
   bestKb: KbEntry | null;
 }
 
-export function classifyIssue(message: string, thresholds: Thresholds): LocalClassifyResult {
+export function classifyIssue(message: string, kb: KbEntry[], thresholds: Thresholds): LocalClassifyResult {
   const t = thresholds || { auto: 90, approve: 75, rewrite: 50 };
   const msg = (message || '').trim();
   const haystack = msg.toLowerCase();
 
   const area = detectArea(haystack) || 'General';
-  const scored = scoreKb(haystack);
+  const scored = scoreKb(haystack, kb || []);
   const best = scored[0] || null;
   const bestScore = best ? best.score : 0;
 
   const looksNovel = NOVEL_SIGNALS.some(s => haystack.includes(s));
   let confidence = bestScore;
-  if (looksNovel) confidence = Math.min(confidence, 45);
+  // A "novel" phrasing only dents confidence — it no longer hard-caps it,
+  // so a strong KB match still resolves (with a human in the loop) instead
+  // of always escalating. Weak matches + novel wording still fall to Eng.
+  if (looksNovel) confidence = Math.max(0, confidence - 20);
   confidence = Math.max(0, Math.min(100, confidence));
 
   const route = routeFor(confidence, t);
@@ -140,8 +174,8 @@ export function classifyIssue(message: string, thresholds: Thresholds): LocalCla
 }
 
 /** Build a playable Scenario from a free-text message + classifier result. */
-export function buildDynamicScenario(message: string, thresholds: Thresholds): Scenario {
-  const r = classifyIssue(message, thresholds);
+export function buildDynamicScenario(message: string, kb: KbEntry[], thresholds: Thresholds): Scenario {
+  const r = classifyIssue(message, kb, thresholds);
   const steps: ScenarioStep[] = [
     { from: 'user', text: message },
     { from: 'ai', kind: 'thinking', text: 'Matching against the knowledge base and past tickets…' },
@@ -184,6 +218,7 @@ export function buildDynamicScenario(message: string, thresholds: Thresholds): S
     summary: message,
     jira: r.bestKb ? r.bestKb.id : undefined,
     eta: r.type === 2 ? 'Fix in progress' : undefined,
+    kbId: r.bestKb ? r.bestKb.id : undefined,
     steps,
   };
 }

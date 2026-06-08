@@ -72,9 +72,9 @@
   transition: .12s;
   &:hover { background: var(--gray-50); }
   &.active {
-    border-color: #7A5AF8;
-    background: #F4F3FF;
-    outline: 1px solid #7A5AF8;
+    border-color: var(--purple-500, #7A5AF8);
+    background: var(--purple-50, #F4F3FF);
+    outline: 1px solid var(--purple-500, #7A5AF8);
   }
 }
 
@@ -106,7 +106,8 @@
   padding: 10px 13px;
   font-size: 14px;
   line-height: 21px;
-  color: var(--gray-700);
+  background: var(--gray-50, #fff);
+  color: var(--gray-900, #101828);
   font-family: inherit;
   resize: vertical;
   box-sizing: border-box;

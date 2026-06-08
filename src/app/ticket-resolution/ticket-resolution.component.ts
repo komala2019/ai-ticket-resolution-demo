@@ -1,5 +1,6 @@
 import { Component, OnDestroy } from '@angular/core';
 import { ROUTE_META, QUEUE, Thresholds, routeFor } from './ticket-data';
+import { DemoStateService } from './demo-state.service';
 
 export interface ToastState { msg: string; tone: string; }
 
@@ -10,19 +11,56 @@ export interface ToastState { msg: string; tone: string; }
 })
 export class TicketResolutionComponent implements OnDestroy {
   view: 'customer' | 'console' | 'readme' | 'architecture' = 'customer';
-  tab: 'queue' | 'kb' | 'analytics' = 'queue';
+  tab: 'queue' | 'kb' | 'analytics' | 'golden' = 'queue';
   selectedTicket: any = null;
   escalatingTicket: any = null;
   toast: ToastState | null = null;
   private toastTimer: any;
+  showNotificationsDropdown = false;
 
   thresholds: Thresholds = { auto: 90, approve: 75, rewrite: 50 };
 
   ROUTE_META = ROUTE_META;
 
+  constructor(public demo: DemoStateService) {}
+
+  toggleNotifications() {
+    this.showNotificationsDropdown = !this.showNotificationsDropdown;
+  }
+
+  handleNotificationClick(n: any) {
+    n.read = true;
+    this.showNotificationsDropdown = false;
+    
+    // Check if body or title mentions a ticket ID (TCK-XXXX or #XXXX)
+    const match = n.body.match(/TCK-\d+/) || n.title.match(/TCK-\d+/) || n.body.match(/#\d+/) || n.title.match(/#\d+/);
+    if (match) {
+      const ticketId = match[0].replace('#', 'TCK-'); // normalize
+      // Try to find the ticket. We can search in demo.queue.
+      // E.g., if ticketId is TCK-2041
+      const ticket = this.demo.queue.find(t => t.id === ticketId || t.id.replace('TCK-', '#') === match[0]);
+      if (ticket) {
+        this.view = 'console';
+        this.tab = 'queue';
+        this.selectedTicket = ticket;
+        return;
+      }
+    }
+
+    if (n.title.toLowerCase().includes('knowledge') || n.body.toLowerCase().includes('kb') || n.title.toLowerCase().includes('article')) {
+      this.view = 'console';
+      this.tab = 'kb';
+      return;
+    }
+  }
+
   get queueCounts() {
     const counts: Record<string, number> = { auto: 0, approve: 0, rewrite: 0, eng: 0 };
-    QUEUE.forEach(t => counts[routeFor(t.confidence, this.thresholds)]++);
+    this.demo.queue.forEach(t => {
+      if (!t.status) {
+        counts[routeFor(t.confidence, this.thresholds)]++;
+      }
+    });
     return counts;
   }
 
@@ -35,7 +73,7 @@ export class TicketResolutionComponent implements OnDestroy {
     return this.view === 'readme' || this.view === 'architecture';
   }
 
-  switchTab(t: 'queue' | 'kb' | 'analytics') {
+  switchTab(t: 'queue' | 'kb' | 'analytics' | 'golden') {
     this.tab = t;
   }
 
