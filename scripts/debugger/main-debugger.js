@@ -22,6 +22,7 @@ const syntaxAgent = require('./sub-agents/syntax-agent');
 const logicAgent = require('./sub-agents/logic-agent');
 const styleAgent = require('./sub-agents/style-agent');
 const metricsAgent = require('./sub-agents/metrics-agent');
+const responsivenessAgent = require('./sub-agents/responsiveness-agent');
 
 const workspaceRoot = path.resolve(__dirname, '../../');
 
@@ -87,6 +88,15 @@ async function startDebugger() {
   const metricsResults = metricsAgent.run(workspaceRoot, files);
   console.log(`${colors.green}[Finished] Complexity & Metrics completed successfully.${colors.reset}\n`);
 
+  // 6. Run Mobile Responsiveness check
+  console.log(`${colors.blue}[Running]${colors.reset} Mobile Responsiveness Agent...`);
+  const responsivenessResults = responsivenessAgent.run(workspaceRoot, files);
+  if (responsivenessResults.success) {
+    console.log(`${colors.green}[Success] ${responsivenessResults.name} passed. All components are responsive!${colors.reset}\n`);
+  } else {
+    console.log(`${colors.yellow}[Alert]    ${responsivenessResults.name} flagged ${responsivenessResults.findings.length} item(s).${colors.reset}\n`);
+  }
+
   // --- Output CLI Summary Dashboard ---
   console.log(`${colors.bold}${colors.magenta}┌────────────────────────────────────────────────────────┐${colors.reset}`);
   console.log(`${colors.bold}${colors.magenta}│                    EXECUTIVE SUMMARY                   │${colors.reset}`);
@@ -98,7 +108,7 @@ async function startDebugger() {
   console.log(`TypeScript Health:   ${syntaxResults.success ? colors.green + 'HEALTHY' : colors.red + 'WARNING'}${colors.reset}`);
   console.log();
 
-  const totalWarnings = syntaxResults.findings.length + logicResults.findings.length + styleResults.findings.length + metricsResults.findings.length;
+  const totalWarnings = syntaxResults.findings.length + logicResults.findings.length + styleResults.findings.length + metricsResults.findings.length + responsivenessResults.findings.length;
 
   if (totalWarnings > 0) {
     console.log(`${colors.bold}${colors.yellow}⚠️  Found ${totalWarnings} potential issue(s) across the codebase:${colors.reset}\n`);
@@ -146,6 +156,20 @@ async function startDebugger() {
       });
     }
 
+    // Print responsiveness findings
+    if (responsivenessResults.findings.length > 0) {
+      console.log(`${colors.bold}${colors.underline}Mobile Responsiveness Issues:${colors.reset}`);
+      responsivenessResults.findings.forEach(f => {
+        const typeColor = f.type === 'error' ? colors.red : f.type === 'warning' ? colors.yellow : colors.cyan;
+        console.log(`  - [${typeColor}${f.type.toUpperCase()}${colors.reset}] ${colors.bold}${f.category}${colors.reset} in ${colors.blue}${f.relativeFile}:${f.line}${colors.reset}`);
+        console.log(`    ${f.message}`);
+        if (f.snippet) {
+          console.log(`    ${colors.bold}Snippet:${colors.reset} "${colors.cyan}${f.snippet}${colors.reset}"`);
+        }
+        console.log(`    ${colors.bold}Rec:${colors.reset} ${f.recommendation}\n`);
+      });
+    }
+
   } else {
     console.log(`${colors.bold}${colors.green}🎉 Congratulations! No potential bugs or quality issues were detected!${colors.reset}\n`);
   }
@@ -158,10 +182,10 @@ async function startDebugger() {
   console.log();
 
   // 6. Write Markdown Report
-  await writeMarkdownReport(syntaxResults, logicResults, styleResults, metricsResults);
+  await writeMarkdownReport(syntaxResults, logicResults, styleResults, metricsResults, responsivenessResults);
 }
 
-async function writeMarkdownReport(syntax, logic, style, metrics) {
+async function writeMarkdownReport(syntax, logic, style, metrics, responsiveness) {
   const reportPath = path.join(workspaceRoot, 'debugger_report.md');
   const timestamp = new Date().toLocaleString();
   
@@ -177,6 +201,7 @@ Generated on: **${timestamp}**
 | **${logic.name}** | ${logic.success ? '✅ PASSED' : '⚠️ WARNING'} | ${logic.findings.length} |
 | **${style.name}** | ${style.success ? '✅ PASSED' : '⚠️ WARNING'} | ${style.findings.length} |
 | **${metrics.name}** | ${metrics.success ? '✅ PASSED' : '⚠️ WARNING'} | ${metrics.findings.length} |
+| **${responsiveness.name}** | ${responsiveness.success ? '✅ PASSED' : '⚠️ WARNING'} | ${responsiveness.findings.length} |
 
 ---
 
@@ -202,7 +227,8 @@ ${metrics.meta.topLargest.map((f, idx) => `| ${idx + 1} | [${path.basename(f.fil
     ...syntax.findings.map(f => ({ ...f, agent: syntax.name })),
     ...logic.findings.map(f => ({ ...f, agent: logic.name })),
     ...style.findings.map(f => ({ ...f, agent: style.name })),
-    ...metrics.findings.map(f => ({ ...f, agent: metrics.name }))
+    ...metrics.findings.map(f => ({ ...f, agent: metrics.name })),
+    ...responsiveness.findings.map(f => ({ ...f, agent: responsiveness.name }))
   ];
 
   if (allFindings.length === 0) {

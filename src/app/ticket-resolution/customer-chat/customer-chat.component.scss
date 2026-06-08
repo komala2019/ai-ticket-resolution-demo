@@ -429,6 +429,12 @@
   gap: 8px;
 }
 
+.classify-layout-content {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+}
+
 @media (max-width: 768px) {
   .chat-layout {
     flex-direction: column;
@@ -443,6 +449,24 @@
   }
   .bubble {
     max-width: 90%;
+  }
+}
+
+@media (max-width: 576px) {
+  .header-sub-text {
+    display: none;
+  }
+  .replay-text {
+    display: none;
+  }
+  .replay-btn {
+    padding: 7px;
+  }
+  .classify-layout-content {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
   }
 }
 
