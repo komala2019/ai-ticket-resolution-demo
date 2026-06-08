@@ -4,7 +4,7 @@ import { KB_ARTICLES } from '../data/kb.js';
 let db;
 let table;
 
-async function getEmbedding(textOrTexts, apiKey) {
+async function getOpenaiEmbedding(textOrTexts, apiKey) {
   const isArray = Array.isArray(textOrTexts);
   const input = isArray ? textOrTexts : [textOrTexts];
   
@@ -29,29 +29,80 @@ async function getEmbedding(textOrTexts, apiKey) {
   return isArray ? embeddings : embeddings[0];
 }
 
+async function getGeminiEmbedding(textOrTexts, apiKey) {
+  const isArray = Array.isArray(textOrTexts);
+  const texts = isArray ? textOrTexts : [textOrTexts];
+
+  if (isArray) {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requests: texts.map(t => ({
+          model: 'models/gemini-embedding-001',
+          content: { parts: [{ text: t }] },
+          outputDimensionality: 768
+        }))
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`Gemini batch embedding request failed: ${res.statusText}`);
+    }
+    const data = await res.json();
+    return data.embeddings.map(e => e.values);
+  } else {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: { parts: [{ text: texts[0] }] },
+        outputDimensionality: 768
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`Gemini embedding request failed: ${res.statusText}`);
+    }
+    const data = await res.json();
+    return data.embedding.values;
+  }
+}
+
+async function getEmbedding(textOrTexts) {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    return await getGeminiEmbedding(textOrTexts, geminiKey);
+  }
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (openaiKey) {
+    return await getOpenaiEmbedding(textOrTexts, openaiKey);
+  }
+  throw new Error("No API key available for embedding.");
+}
+
 export async function initDatabase() {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    console.log("No OPENAI_API_KEY found. LanceDB will not be initialized with embeddings.");
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (!geminiKey && !openaiKey) {
+    console.log("No API key found. LanceDB will not be initialized with embeddings.");
     return;
   }
 
   try {
     db = await lancedb.connect("server/data/lancedb");
-    const tableName = "kb_articles";
+    const tableName = geminiKey ? "kb_articles_gemini" : "kb_articles_openai";
     const tableNames = await db.tableNames();
     
     if (tableNames.includes(tableName)) {
       table = await db.openTable(tableName);
-      console.log("Opened existing LanceDB table: kb_articles");
+      console.log(`Opened existing LanceDB table: ${tableName}`);
       return;
     }
 
-    console.log("LanceDB table 'kb_articles' does not exist. Generating embeddings and seeding...");
+    console.log(`LanceDB table '${tableName}' does not exist. Generating embeddings and seeding...`);
     const textsToEmbed = KB_ARTICLES.map(article => 
       `${article.title} ${article.content} ${(article.tags || []).join(' ')}`
     );
-    const embeddings = await getEmbedding(textsToEmbed, apiKey);
+    const embeddings = await getEmbedding(textsToEmbed);
     
     const seedData = KB_ARTICLES.map((article, index) => ({
       id: article.id,
@@ -63,7 +114,7 @@ export async function initDatabase() {
     }));
 
     table = await db.createTable(tableName, seedData);
-    console.log("Successfully seeded LanceDB with KB embeddings!");
+    console.log(`Successfully seeded LanceDB with ${geminiKey ? 'Gemini' : 'OpenAI'} KB embeddings!`);
   } catch (error) {
     console.error("Failed to initialize/seed LanceDB:", error);
   }
@@ -74,7 +125,9 @@ async function getTable() {
   if (!db) {
     db = await lancedb.connect("server/data/lancedb");
   }
-  table = await db.openTable("kb_articles");
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const tableName = geminiKey ? "kb_articles_gemini" : "kb_articles_openai";
+  table = await db.openTable(tableName);
   return table;
 }
 
@@ -133,19 +186,20 @@ function fallbackSearch(message, limit = 3) {
 // --- Main Exported retrieveContext ---
 
 export async function retrieveContext(message, limit = 3) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (!geminiKey && !openaiKey) {
     return fallbackSearch(message, limit);
   }
 
   try {
-    const queryVector = await getEmbedding(message, apiKey);
+    const queryVector = await getEmbedding(message);
     const activeTable = await getTable();
     const dbResults = await activeTable.vectorSearch(queryVector).limit(limit).toArray();
     
     return dbResults.map(r => {
       // Calculate cosine similarity approximation from L2 distance (r._distance)
-      // OpenAI embeddings are normalized to unit vector, so cos_sim = 1 - 0.5 * L2^2
+      // Unit normalized vector math: cos_sim = 1 - 0.5 * L2^2
       const rawScore = 1 - 0.5 * (r._distance * r._distance);
       const score = Math.max(0, Math.min(1, rawScore));
       

@@ -1,3 +1,26 @@
+async function fetchWithRetry(url, options, maxRetries = 5, initialDelay = 2000) {
+  let delay = initialDelay;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok) return res;
+      if (res.status === 429 || res.status === 503 || res.status >= 500) {
+        console.warn(`[LLM Service] Gemini API returned status ${res.status}. Retrying in ${delay}ms... (attempt ${i + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2;
+        continue;
+      }
+      return res;
+    } catch (err) {
+      if (i === maxRetries - 1) throw err;
+      console.warn(`[LLM Service] Network error. Retrying in ${delay}ms...`, err.message);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      delay *= 2;
+    }
+  }
+  throw new Error(`Failed after ${maxRetries} retries`);
+}
+
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
 function fallbackAnswer(message, context) {
@@ -14,13 +37,57 @@ function fallbackAnswer(message, context) {
   };
 }
 
-export async function generateAnswer(message, context) {
-  const apiKey = process.env.OPENAI_API_KEY;
+async function generateGeminiAnswer(message, context, apiKey) {
+  const prompt = [
+    'Use the retrieved KB context to answer the customer issue.',
+    'If the evidence is weak, recommend escalation.',
+    '',
+    'Customer message:',
+    message,
+    '',
+    'Retrieved KB context:',
+    context.map(item => `- ${item.id}: ${item.title}\n  ${item.content}`).join('\n\n'),
+  ].join('\n');
 
-  if (!apiKey) {
+  try {
+    const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: prompt }]
+          }
+        ],
+        systemInstruction: {
+          parts: [{ text: 'You are Mile Assistant, a support copilot assistant for a ticket-resolution demo.' }]
+        },
+        generationConfig: {
+          temperature: 0.2
+        }
+      }),
+    });
+
+    if (!res.ok) throw new Error(`Gemini request failed: ${res.statusText}`);
+    const data = await res.json();
+    const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No reply returned.';
+
+    return {
+      route: 'gemini-llm',
+      model: 'gemini-2.5-flash',
+      answer,
+      confidence: 90,
+    };
+  } catch (error) {
+    console.error("Gemini chat generation failed:", error);
     return fallbackAnswer(message, context);
   }
+}
 
+async function generateOpenaiAnswer(message, context, apiKey) {
   const prompt = [
     'You are Mile Assistant, a support copilot.',
     'Use the retrieved KB context to answer the customer issue.',
@@ -61,6 +128,21 @@ export async function generateAnswer(message, context) {
       confidence: 88,
     };
   } catch (error) {
+    console.error("OpenAI chat generation failed:", error);
     return fallbackAnswer(message, context);
   }
+}
+
+export async function generateAnswer(message, context) {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    return await generateGeminiAnswer(message, context, geminiKey);
+  }
+
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (openaiKey) {
+    return await generateOpenaiAnswer(message, context, openaiKey);
+  }
+
+  return fallbackAnswer(message, context);
 }

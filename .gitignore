@@ -9,3 +9,7 @@ Thumbs.db
 /dist-build
 /debugger_report.md
 *.log
+/server/environment.env
+/server/data/lancedb/
+/server/server/
+/server/traces.log

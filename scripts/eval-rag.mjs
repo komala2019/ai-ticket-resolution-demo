@@ -2,6 +2,7 @@ import '../server/utils/env.js';
 import process from 'process';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const BACKEND_URL = 'http://localhost:3001/api/chat';
 
 const TEST_CASES = [
@@ -37,6 +38,29 @@ const TEST_CASES = [
   }
 ];
 
+async function fetchWithRetry(url, options, maxRetries = 5, initialDelay = 2000) {
+  let delay = initialDelay;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok) return res;
+      if (res.status === 429 || res.status === 503 || res.status >= 500) {
+        console.warn(`[Evaluation Judge] Gemini API returned status ${res.status}. Retrying in ${delay}ms... (attempt ${i + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2;
+        continue;
+      }
+      return res;
+    } catch (err) {
+      if (i === maxRetries - 1) throw err;
+      console.warn(`[Evaluation Judge] Network error. Retrying in ${delay}ms...`, err.message);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      delay *= 2;
+    }
+  }
+  throw new Error(`Failed after ${maxRetries} retries`);
+}
+
 async function callChatBot(message) {
   const res = await fetch(BACKEND_URL, {
     method: 'POST',
@@ -49,15 +73,58 @@ async function callChatBot(message) {
   return await res.json();
 }
 
-async function evaluateResponse(query, context, responseAnswer) {
-  if (!OPENAI_API_KEY) {
+async function evaluateWithGemini(query, context, responseAnswer, apiKey) {
+  const contextText = context && context.length > 0
+    ? context.map(item => `[KB Article: ${item.id} - ${item.title}]\n${item.content}`).join('\n\n')
+    : 'No context retrieved.';
+
+  const judgePrompt = `
+User Query: "${query}"
+
+Retrieved Context Chunks:
+${contextText}
+
+Chatbot Response:
+"${responseAnswer}"
+`;
+
+  try {
+    const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: judgePrompt }]
+          }
+        ],
+        systemInstruction: {
+          parts: [{
+            text: 'You are an independent AI quality evaluation judge. Your task is to evaluate the response of a support chatbot based on the provided retrieved context.\n\nYou must evaluate two metrics:\n1. Faithfulness (Groundedness): Is the answer derived ONLY from the retrieved context? If the answer contains facts, workarounds, or details not present in the context, score it lower (e.g. 0.0 to 0.5).\n2. Answer Relevance: Does the response directly and helpfuly address the user\'s issue?\n\nFor each metric, provide a score from 0.0 (worst) to 1.0 (best).\n\nYou must output your evaluation strictly as a JSON object.\n\nJSON format:\n{\n  "faithfulnessScore": 0.9,\n  "relevanceScore": 1.0,\n  "reasoning": "Brief justification."\n}'
+          }]
+        },
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.0
+        }
+      }),
+    });
+
+    if (!res.ok) throw new Error(`Gemini Judge failed: ${res.statusText}`);
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    return JSON.parse(text);
+  } catch (error) {
     return {
-      faithfulnessScore: null,
-      relevanceScore: null,
-      reasoning: 'Skipped LLM evaluation: OPENAI_API_KEY is not set.'
+      faithfulnessScore: 0,
+      relevanceScore: 0,
+      reasoning: `Error running Gemini-as-a-judge: ${error.message}`
     };
   }
+}
 
+async function evaluateWithOpenai(query, context, responseAnswer, apiKey) {
   const contextText = context && context.length > 0
     ? context.map(item => `[KB Article: ${item.id} - ${item.title}]\n${item.content}`).join('\n\n')
     : 'No context retrieved.';
@@ -77,7 +144,7 @@ Chatbot Response:
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
@@ -100,9 +167,23 @@ Chatbot Response:
     return {
       faithfulnessScore: 0,
       relevanceScore: 0,
-      reasoning: `Error running LLM-as-a-judge: ${error.message}`
+      reasoning: `Error running OpenAI-as-a-judge: ${error.message}`
     };
   }
+}
+
+async function evaluateResponse(query, context, responseAnswer) {
+  if (GEMINI_API_KEY) {
+    return await evaluateWithGemini(query, context, responseAnswer, GEMINI_API_KEY);
+  }
+  if (OPENAI_API_KEY) {
+    return await evaluateWithOpenai(query, context, responseAnswer, OPENAI_API_KEY);
+  }
+  return {
+    faithfulnessScore: null,
+    relevanceScore: null,
+    reasoning: 'Skipped LLM evaluation: Neither GEMINI_API_KEY nor OPENAI_API_KEY is set.'
+  };
 }
 
 async function runEvaluation() {
@@ -110,8 +191,8 @@ async function runEvaluation() {
   console.log('      Mile Assistant RAG Evaluation Suite           ');
   console.log('====================================================');
 
-  if (!OPENAI_API_KEY) {
-    console.warn('WARNING: OPENAI_API_KEY is not defined in the environment.');
+  if (!OPENAI_API_KEY && !GEMINI_API_KEY) {
+    console.warn('WARNING: Neither OPENAI_API_KEY nor GEMINI_API_KEY is defined in the environment.');
     console.warn('The evaluation will run chatbot responses, but LLM-as-a-judge scores will be skipped.\n');
   }
 
@@ -127,12 +208,14 @@ async function runEvaluation() {
 
   console.log(`Evaluating ${TEST_CASES.length} test queries...\n`);
 
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
   const results = [];
   let totalFaith = 0;
   let totalRel = 0;
   let evalCount = 0;
 
-  for (const tc of TEST_CASES) {
+  for (let i = 0; i < TEST_CASES.length; i++) {
+    const tc = TEST_CASES[i];
     console.log(`Running: "${tc.name}"...`);
     try {
       const response = await callChatBot(tc.query);
@@ -159,6 +242,10 @@ async function runEvaluation() {
       }
     } catch (error) {
       console.error(`  Failed test case "${tc.name}":`, error.message);
+    }
+
+    if (i < TEST_CASES.length - 1) {
+      await delay(4000);
     }
   }
 
