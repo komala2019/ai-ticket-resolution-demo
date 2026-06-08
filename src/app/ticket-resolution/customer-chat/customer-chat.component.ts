@@ -24,6 +24,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   constructor(private api: TicketResolutionApiService, public demo: DemoStateService) {}
 
   sid = 'custom';
+  rephraseCount = 0;
   n = 0;
   halted = false;
   outcome: OutcomeKind = null;
@@ -53,53 +54,168 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     this.pendingAttachment = null;
 
     const msg = text || 'Please take a look at the attached file.';
-    const dynamic = buildDynamicScenario(msg, this.demo.kb, this.thresholds);
-    if (attachment && dynamic.steps[0]) dynamic.steps[0].attachment = attachment;
 
-    // Create a real queue ticket so the issue shows up in CS Console.
+    let currentVisible: ScenarioStep[] = [];
+    if (this.sid === 'custom' || this.sid === '__custom') {
+      const currentScenario = this.SCENARIOS[this.sid];
+      if (currentScenario) {
+        currentVisible = currentScenario.steps.slice(0, this.n);
+      }
+    }
+
     const result = classifyIssue(msg, this.demo.kb, this.thresholds);
-    const maxId = Math.max(...this.demo.queue.map(t => parseInt(t.id.replace('TCK-', ''), 10) || 0), 2050);
-    const ticketId = 'TCK-' + (maxId + 1);
-    this.customTicketId = ticketId;
 
-    const queueTicket: QueueTicket = {
-      id: ticketId,
-      confidence: dynamic.confidence,
-      type: dynamic.type,
-      priority: dynamic.priority,
-      area: dynamic.productArea,
-      customer: 'You (Demo User)',
-      company: 'Demo Session',
-      age: 'just now',
-      subject: msg.length > 80 ? msg.slice(0, 77) + '…' : msg,
-      draft: result.intro + (result.steps.length ? '\n' + result.steps.join('\n') : ''),
-      evidence: result.evidence,
-      reopen: 0,
-      novel: dynamic.type === 1,
-    };
-    this.demo.queue = [...this.demo.queue, queueTicket];
-    this.demo.notify(
-      'New ticket created',
-      ticketId + ' · ' + dynamic.productArea + ' · ' + dynamic.confidence + '% confidence',
-      dynamic.type === 1 ? 'purple' : 'blue',
-    );
+    if (result.type === 1) {
+      if (this.rephraseCount < 2) {
+        this.rephraseCount++;
+        
+        const newSteps: ScenarioStep[] = [
+          { from: 'user', text: msg },
+          { from: 'ai', kind: 'thinking', text: 'Matching against the knowledge base and past tickets…' }
+        ];
+        if (attachment) newSteps[0].attachment = attachment;
 
-    this.SCENARIOS = { ...this.SCENARIOS, __custom: dynamic };
-    this.sid = '__custom';
-    this.n = 0;
-    this.halted = false;
-    this.outcome = null;
-    this.agentJoined = false;
-    this.liveAnswer = null;
-    clearTimeout(this.timer);
+        const promptText = this.rephraseCount === 1
+          ? "Could you please rephrase your request? I want to make sure I understand the issue clearly before suggesting a fix."
+          : "I want to be extra careful not to guess. Could you try rephrasing one more time? If we still can't find a match, I'll escalate this to our engineering team.";
+
+        newSteps.push({ from: 'ai', text: promptText });
+
+        const dyn: Scenario = {
+          id: '__custom',
+          label: 'Your issue',
+          type: result.type,
+          confidence: result.confidence,
+          productArea: result.productArea,
+          priority: result.priority,
+          summary: msg,
+          steps: [...currentVisible, ...newSteps]
+        };
+
+        this.SCENARIOS = { ...this.SCENARIOS, __custom: dyn };
+        this.sid = '__custom';
+        this.n = currentVisible.length;
+        this.halted = false;
+        this.outcome = null;
+        this.agentJoined = false;
+        this.liveAnswer = null;
+        clearTimeout(this.timer);
+        this.startPlayback();
+      } else {
+        // Third attempt, escalate and create ticket
+        const maxId = Math.max(...this.demo.queue.map(t => parseInt(t.id.replace('TCK-', ''), 10) || 0), 2050);
+        const ticketId = 'TCK-' + (maxId + 1);
+        this.customTicketId = ticketId;
+
+        const queueTicket: QueueTicket = {
+          id: ticketId,
+          confidence: result.confidence,
+          type: result.type,
+          priority: result.priority,
+          area: result.productArea,
+          customer: 'You (Demo User)',
+          company: 'Demo Session',
+          age: 'just now',
+          subject: msg.length > 80 ? msg.slice(0, 77) + '…' : msg,
+          draft: result.intro + (result.steps.length ? '\n' + result.steps.join('\n') : ''),
+          evidence: result.evidence,
+          reopen: 0,
+          novel: true,
+        };
+        this.demo.queue = [...this.demo.queue, queueTicket];
+        this.demo.notify(
+          'New ticket created',
+          ticketId + ' · ' + result.productArea + ' · ' + result.confidence + '% confidence',
+          'purple'
+        );
+
+        const newSteps: ScenarioStep[] = [
+          { from: 'user', text: msg },
+          { from: 'ai', kind: 'thinking', text: 'Matching against the knowledge base and past tickets…' },
+          { from: 'ai', kind: 'classify' },
+          {
+            from: 'ai', kind: 'novel',
+            headline: "We've escalated this to our support team",
+            intro: "I couldn't find a direct match in our knowledge base after a few attempts, so I've opened a P1 ticket to get this resolved by a human specialist.",
+            captured: [
+              { k: 'Reported issue', v: msg.length > 90 ? msg.slice(0, 90) + '…' : msg },
+              { k: 'Product area', v: result.productArea },
+              { k: 'Priority', v: result.priority },
+              { k: 'KB match', v: 'none above threshold' },
+            ],
+          },
+          {
+            from: 'ai', kind: 'status',
+            text: `I've opened ticket ${ticketId} and routed it to the ${result.productArea} team. A support specialist will follow up shortly.`
+          }
+        ];
+        if (attachment) newSteps[0].attachment = attachment;
+
+        const dyn: Scenario = {
+          id: '__custom',
+          label: 'Your issue',
+          type: result.type,
+          confidence: result.confidence,
+          productArea: result.productArea,
+          priority: result.priority,
+          summary: msg,
+          steps: [...currentVisible, ...newSteps]
+        };
+
+        this.SCENARIOS = { ...this.SCENARIOS, __custom: dyn };
+        this.sid = '__custom';
+        this.n = currentVisible.length;
+        this.halted = false;
+        this.outcome = null;
+        this.agentJoined = false;
+        this.liveAnswer = null;
+        clearTimeout(this.timer);
+        this.startPlayback();
+      }
+    } else {
+      // High/medium confidence match, resolve inline
+      const dynamicPlayable = buildDynamicScenario(msg, this.demo.kb, this.thresholds);
+      
+      const newSteps: ScenarioStep[] = [
+        { from: 'user', text: msg },
+        { from: 'ai', kind: 'thinking', text: 'Matching against the knowledge base and past tickets…' },
+        { from: 'ai', kind: 'classify' },
+      ];
+      if (attachment) newSteps[0].attachment = attachment;
+
+      const outcomeSteps = dynamicPlayable.steps.slice(3);
+      newSteps.push(...outcomeSteps);
+
+      const dyn: Scenario = {
+        id: '__custom',
+        label: 'Your issue',
+        type: dynamicPlayable.type,
+        confidence: dynamicPlayable.confidence,
+        productArea: dynamicPlayable.productArea,
+        priority: dynamicPlayable.priority,
+        summary: msg,
+        jira: dynamicPlayable.jira,
+        eta: dynamicPlayable.eta,
+        kbId: dynamicPlayable.kbId,
+        steps: [...currentVisible, ...newSteps]
+      };
+
+      this.SCENARIOS = { ...this.SCENARIOS, __custom: dyn };
+      this.sid = '__custom';
+      this.n = currentVisible.length;
+      this.halted = false;
+      this.outcome = null;
+      this.agentJoined = false;
+      this.liveAnswer = null;
+      clearTimeout(this.timer);
+      this.startPlayback();
+    }
 
     this.api.chat(msg).subscribe(response => {
       if (response?.answer) {
         this.liveAnswer = response.answer;
       }
     });
-
-    this.startPlayback();
   }
 
   /** Composer file picker → stage an image/video preview. */
@@ -160,6 +276,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     this.halted = false;
     this.outcome = null;
     this.customTicketId = null;
+    this.rephraseCount = 0;
     clearTimeout(this.timer);
 
     const ticketId = this.scenario.ticketId;
