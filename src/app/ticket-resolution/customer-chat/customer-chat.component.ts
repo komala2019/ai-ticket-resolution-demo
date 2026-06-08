@@ -78,7 +78,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     // Check if the intent is a potential bug or just plain language
     const isBug = isBugIntent(msg, this.demo.kb);
 
-    // Refresh context if user changed context or intent
+    // Refresh rephrase count if user changed context or intent (but preserve conversation steps)
     const prevCustom = this.SCENARIOS['__custom'];
     if (prevCustom && this.sid === '__custom') {
       const prevIsBug = isBugIntent(prevCustom.summary, this.demo.kb);
@@ -89,7 +89,6 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       const intentChanged = isBug !== prevIsBug || (isBug && newArea !== 'General' && newArea !== prevArea);
 
       if (intentChanged) {
-        currentSteps = [];
         this.rephraseCount = 0;
       }
     }
@@ -489,6 +488,39 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   }
 
   selectScenario(id: string) {
+    if (id === 'custom' && this.SCENARIOS['__custom']) {
+      this.sid = '__custom';
+      this.n = this.SCENARIOS['__custom'].steps.length;
+      this.halted = false;
+      const lastStep = this.SCENARIOS['__custom'].steps[this.n - 1];
+      if (lastStep && (lastStep.kind === 'clarify' || lastStep.kind === 'confirm' || lastStep.kind === 'ticket-form')) {
+        this.halted = true;
+      }
+      setTimeout(() => this.scrollToBottom(), 50);
+      return;
+    }
+
+    if (id === '__custom') {
+      // Clear/Reset custom chat back to default template
+      const template = JSON.parse(JSON.stringify(SCENARIOS['custom']));
+      this.SCENARIOS['__custom'] = template;
+      this.sid = '__custom';
+      this.n = template.steps.length;
+      this.halted = false;
+      this.outcome = null;
+      this.customTicketId = null;
+      this.rephraseCount = 0;
+      this.formSubject = '';
+      this.formArea = '';
+      this.formPriority = 'P3';
+      this.formDesc = '';
+      this.formAttachment = null;
+      this.formSubmitted = false;
+      clearTimeout(this.timer);
+      setTimeout(() => this.scrollToBottom(), 50);
+      return;
+    }
+
     this.sid = id;
     this.n = 0;
     this.halted = false;

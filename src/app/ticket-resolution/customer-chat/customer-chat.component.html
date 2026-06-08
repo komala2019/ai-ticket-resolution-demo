@@ -32,12 +32,12 @@
       <button
         *ngFor="let id of SCENARIO_ORDER"
         class="scenario-chip"
-        [class.active]="id === sid"
-        [style.border-color]="id === sid ? TYPE_META[SCENARIOS[id].type].hex : 'var(--gray-300)'"
-        [style.background]="id === sid ? TYPE_META[SCENARIOS[id].type].soft : 'var(--tr-surface, #fff)'"
-        [style.color]="id === sid ? TYPE_META[SCENARIOS[id].type].hex : 'var(--gray-600)'"
+        [class.active]="id === sid || (id === 'custom' && sid === '__custom')"
+        [style.border-color]="(id === sid || (id === 'custom' && sid === '__custom')) ? TYPE_META[SCENARIOS[sid].type].hex : 'var(--gray-300)'"
+        [style.background]="(id === sid || (id === 'custom' && sid === '__custom')) ? TYPE_META[SCENARIOS[sid].type].soft : 'var(--tr-surface, #fff)'"
+        [style.color]="(id === sid || (id === 'custom' && sid === '__custom')) ? TYPE_META[SCENARIOS[sid].type].hex : 'var(--gray-600)'"
         (click)="selectScenario(id)">
-        <span class="scenario-dot" [style.background]="TYPE_META[SCENARIOS[id].type].hex"></span>
+        <span class="scenario-dot" [style.background]="(id === sid || (id === 'custom' && sid === '__custom')) ? TYPE_META[SCENARIOS[sid].type].hex : TYPE_META[SCENARIOS[id].type].hex"></span>
         {{ SCENARIOS[id].label }}
       </button>
     </div>
