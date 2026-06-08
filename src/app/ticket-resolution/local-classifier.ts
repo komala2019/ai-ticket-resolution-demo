@@ -108,6 +108,7 @@ function mentionsKnownBug(e: KbEntry): boolean {
 
 export function isBugIntent(message: string, kb: KbEntry[]): boolean {
   const msg = (message || '').toLowerCase();
+  if (msg.includes('take a look at the attached file')) return true;
   const scored = scoreKb(msg, kb);
   if (scored.length > 0 && scored[0].score > 30) return true;
   for (const area of Object.keys(AREA_KEYWORDS)) {

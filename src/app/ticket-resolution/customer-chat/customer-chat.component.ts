@@ -105,6 +105,8 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     }
 
     if (result.type === 1) {
+      const hasVideo = currentVisible.some(s => s.attachment && s.attachment.kind === 'video') || (attachment && attachment.kind === 'video');
+
       if (this.rephraseCount < 2) {
         this.rephraseCount++;
         
@@ -140,8 +142,43 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         this.liveAnswer = null;
         clearTimeout(this.timer);
         this.startPlayback();
+      } else if (this.rephraseCount === 2 && !hasVideo) {
+        // Ask for video/clarification before ticket creation
+        this.rephraseCount = 3;
+
+        const newSteps: ScenarioStep[] = [
+          { from: 'user', text: msg },
+          { from: 'ai', kind: 'thinking', text: 'Preparing ticket details…' }
+        ];
+        if (attachment) newSteps[0].attachment = attachment;
+
+        newSteps.push({
+          from: 'ai',
+          text: "I'm preparing to open a support ticket for our engineering team. To help us diagnose this faster, could you please upload a short video recording of the issue, or describe the exact steps to reproduce it?"
+        });
+
+        const dyn: Scenario = {
+          id: '__custom',
+          label: 'Your issue',
+          type: result.type,
+          confidence: result.confidence,
+          productArea: result.productArea,
+          priority: result.priority,
+          summary: msg,
+          steps: [...currentVisible, ...newSteps]
+        };
+
+        this.SCENARIOS = { ...this.SCENARIOS, __custom: dyn };
+        this.sid = '__custom';
+        this.n = currentVisible.length;
+        this.halted = false;
+        this.outcome = null;
+        this.agentJoined = false;
+        this.liveAnswer = null;
+        clearTimeout(this.timer);
+        this.startPlayback();
       } else {
-        // Third attempt, escalate and create ticket
+        // Create ticket and escalate
         const maxId = Math.max(...this.demo.queue.map(t => parseInt(t.id.replace('TCK-', ''), 10) || 0), 2050);
         const ticketId = 'TCK-' + (maxId + 1);
         this.customTicketId = ticketId;
