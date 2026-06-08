@@ -1,3 +1,4 @@
+import './utils/env.js';
 import cors from 'cors';
 import express from 'express';
 import { retrieveContext, initDatabase } from './services/vector.service.js';
@@ -26,7 +27,7 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: 'message is required' });
   }
 
-  const context = retrieveContext(message, 3);
+  const context = await retrieveContext(message, 3);
   const answer = await generateAnswer(message, context);
   const traceEntry = trace('chat-request', { message, context, answer });
 
