@@ -75,14 +75,21 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     const userStep: ScenarioStep = { from: 'user', text: msg };
     if (attachment) userStep.attachment = attachment;
 
-    const thinkingStep: ScenarioStep = { from: 'ai', kind: 'thinking', text: 'Consulting Knowledge Base...' };
+    // Check if the intent is a potential bug or just plain language
+    const isBug = isBugIntent(msg, this.demo.kb);
+
+    const thinkingStep: ScenarioStep = {
+      from: 'ai',
+      kind: 'thinking',
+      text: isBug ? 'Consulting Knowledge Base...' : 'Formulating response...'
+    };
     currentSteps.push(userStep, thinkingStep);
 
     const customScenario: Scenario = {
       id: '__custom',
       label: 'Your issue',
       type: 3,
-      confidence: 90,
+      confidence: isBug ? 90 : 0,
       productArea: 'General',
       priority: 'P3',
       summary: msg,
@@ -108,78 +115,90 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         text: response.answer || 'No reply returned.'
       };
 
-      const classifyStep: ScenarioStep = {
-        from: 'ai',
-        kind: 'classify'
-      };
-
-      if (thinkIdx !== -1) {
-        stepsList[thinkIdx] = classifyStep;
-        stepsList.splice(thinkIdx + 1, 0, aiStep);
-      } else {
-        stepsList.push(classifyStep, aiStep);
-      }
-
-      const score = response.confidence ?? 0;
-      const route = response.route || 'fallback';
-      
-      let type = 3;
-      if (route.includes('escalate') || score < this.thresholds.rewrite) {
-        type = 1;
-      } else if (score < this.thresholds.auto) {
-        type = 2;
-      }
-
-      let area = 'General';
-      let kbId: string | undefined = undefined;
-      if (response.context && response.context.length > 0) {
-        const topHit = response.context[0];
-        kbId = topHit.id;
-        if (topHit.tags && topHit.tags.length > 0) {
-          area = topHit.tags[0];
+      if (!isBug) {
+        // For general chit-chat: just display the AI's reply bubble without classification or thumbs
+        if (thinkIdx !== -1) {
+          stepsList[thinkIdx] = aiStep;
+        } else {
+          stepsList.push(aiStep);
         }
-      }
-
-      const priority = type === 1 ? 'P1' : (type === 2 ? 'P2' : 'P3');
-
-      this.SCENARIOS['__custom'].type = type;
-      this.SCENARIOS['__custom'].confidence = score;
-      this.SCENARIOS['__custom'].productArea = area;
-      this.SCENARIOS['__custom'].priority = priority;
-      this.SCENARIOS['__custom'].kbId = kbId;
-
-      this.n = stepsList.length;
-      this.halted = false;
-
-      if (type === 1) {
-        this.formSubject = msg.length > 80 ? msg.slice(0, 77) + '…' : msg;
-        this.formArea = area;
-        this.formPriority = priority;
-        this.formDesc = msg;
-        this.formAttachment = attachment || null;
-        this.formSubmitted = false;
-
-        stepsList.push({ from: 'ai', kind: 'ticket-form' });
         this.n = stepsList.length;
-        this.halted = true;
-      } else if (type === 2) {
-        stepsList.push({
-          from: 'ai',
-          kind: 'confirm',
-          text: 'That workaround should get you unblocked. Want me to notify you when the permanent fix ships?',
-          positive: 'Yes, notify me',
-          negative: "Workaround didn't help"
-        });
-        this.n = stepsList.length;
-        this.halted = true;
+        this.halted = false; // Allow user to reply immediately
       } else {
-        stepsList.push({
+        // For bug reports: show classification card and direct thumbs/ticket actions
+        const classifyStep: ScenarioStep = {
           from: 'ai',
-          kind: 'confirm',
-          text: 'Did this resolve your issue?'
-        });
+          kind: 'classify'
+        };
+
+        if (thinkIdx !== -1) {
+          stepsList[thinkIdx] = classifyStep;
+          stepsList.splice(thinkIdx + 1, 0, aiStep);
+        } else {
+          stepsList.push(classifyStep, aiStep);
+        }
+
+        const score = response.confidence ?? 0;
+        const route = response.route || 'fallback';
+        
+        let type = 3;
+        if (route.includes('escalate') || score < this.thresholds.rewrite) {
+          type = 1;
+        } else if (score < this.thresholds.auto) {
+          type = 2;
+        }
+
+        let area = 'General';
+        let kbId: string | undefined = undefined;
+        if (response.context && response.context.length > 0) {
+          const topHit = response.context[0];
+          kbId = topHit.id;
+          if (topHit.tags && topHit.tags.length > 0) {
+            area = topHit.tags[0];
+          }
+        }
+
+        const priority = type === 1 ? 'P1' : (type === 2 ? 'P2' : 'P3');
+
+        this.SCENARIOS['__custom'].type = type;
+        this.SCENARIOS['__custom'].confidence = score;
+        this.SCENARIOS['__custom'].productArea = area;
+        this.SCENARIOS['__custom'].priority = priority;
+        this.SCENARIOS['__custom'].kbId = kbId;
+
         this.n = stepsList.length;
-        this.halted = true;
+        this.halted = false;
+
+        if (type === 1) {
+          this.formSubject = msg.length > 80 ? msg.slice(0, 77) + '…' : msg;
+          this.formArea = area;
+          this.formPriority = priority;
+          this.formDesc = msg;
+          this.formAttachment = attachment || null;
+          this.formSubmitted = false;
+
+          stepsList.push({ from: 'ai', kind: 'ticket-form' });
+          this.n = stepsList.length;
+          this.halted = true;
+        } else if (type === 2) {
+          stepsList.push({
+            from: 'ai',
+            kind: 'confirm',
+            text: 'That workaround should get you unblocked. Want me to notify you when the permanent fix ships?',
+            positive: 'Yes, notify me',
+            negative: "Workaround didn't help"
+          });
+          this.n = stepsList.length;
+          this.halted = true;
+        } else {
+          stepsList.push({
+            from: 'ai',
+            kind: 'confirm',
+            text: 'Did this resolve your issue?'
+          });
+          this.n = stepsList.length;
+          this.halted = true;
+        }
       }
 
       setTimeout(() => this.scrollToBottom(), 50);
