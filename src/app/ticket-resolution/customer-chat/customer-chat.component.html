@@ -287,7 +287,7 @@
                placeholder="Describe your issue in plain language…" />
         <button class="human-btn" (click)="requestAgent()" [disabled]="agentJoined" title="Talk to a human">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          {{ agentJoined ? 'Agent joined' : 'Human' }}
+          <span class="human-btn-text">{{ agentJoined ? 'Agent joined' : 'Human' }}</span>
         </button>
         <span class="send-icon" (click)="onSend()" [style.cursor]="'pointer'" [style.opacity]="(composerText.trim() || pendingAttachment) ? 1 : 0.5">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>

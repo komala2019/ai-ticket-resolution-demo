@@ -470,3 +470,12 @@
   }
 }
 
+@media (max-width: 480px) {
+  .human-btn-text {
+    display: none;
+  }
+  .human-btn {
+    padding: 7px;
+  }
+}
+

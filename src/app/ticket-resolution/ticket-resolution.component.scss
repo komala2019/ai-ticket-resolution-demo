@@ -609,4 +609,18 @@
   }
 }
 
+@media (max-width: 480px) {
+  .tr-logo-text {
+    display: none;
+  }
+  .tr-seg-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  .tr-doc-btn {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+}
+
 
