@@ -110,9 +110,36 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       const stepsList = this.SCENARIOS['__custom'].steps;
       const thinkIdx = stepsList.findIndex(s => s.kind === 'thinking');
 
+      const isOffline = !response.ok || response.model === 'demo-fallback';
+
+      let aiStepText = response.answer || 'No reply returned.';
+
+      if (isOffline) {
+        if (!isBug) {
+          // Select from a pool of friendly, guiding replies to avoid repeated static text
+          const greetings = [
+            "Hello! I am your support copilot. I am currently operating in local mode. If you are experiencing a product issue (e.g., Booking Engine widget missing, Analytics charts blank, or Salesforce Lead Sync issues), please describe it in detail so I can retrieve the solution for you.",
+            "Hi there! As your support assistant, I am here to help you resolve technical bugs locally. If you have an issue related to Analytics, Email segments, Salesforce integration, or Account settings, please describe the problem here.",
+            "Welcome! If you have any questions or product bugs to report (such as invite button issues or campaign duplicates), please describe your issue. I can query our knowledge base locally and guide you to a resolution!"
+          ];
+          const randIdx = Math.floor(Math.random() * greetings.length);
+          aiStepText = greetings[randIdx];
+        } else {
+          // Use client-side classification to construct a real local answer
+          const localResult = classifyIssue(msg, this.demo.kb, this.thresholds);
+          if (localResult.type === 1) {
+            aiStepText = "I couldn't find a confident match for this issue in our local knowledge base. I recommend opening a support ticket below so we can escalate this to the engineering team.";
+          } else if (localResult.type === 2) {
+            aiStepText = "This matches a known issue: \"" + localResult.headline + "\". Workaround:\n" + localResult.intro;
+          } else {
+            aiStepText = "Here is the recommended solution for \"" + localResult.headline + "\":\n" + localResult.intro;
+          }
+        }
+      }
+
       const aiStep: ScenarioStep = {
         from: 'ai',
-        text: response.answer || 'No reply returned.'
+        text: aiStepText
       };
 
       if (!isBug) {
@@ -138,23 +165,32 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
           stepsList.push(classifyStep, aiStep);
         }
 
-        const score = response.confidence ?? 0;
-        const route = response.route || 'fallback';
-        
+        let score = response.confidence ?? 0;
+        let route = response.route || 'fallback';
         let type = 3;
-        if (route.includes('escalate') || score < this.thresholds.rewrite) {
-          type = 1;
-        } else if (score < this.thresholds.auto) {
-          type = 2;
-        }
-
         let area = 'General';
         let kbId: string | undefined = undefined;
-        if (response.context && response.context.length > 0) {
-          const topHit = response.context[0];
-          kbId = topHit.id;
-          if (topHit.tags && topHit.tags.length > 0) {
-            area = topHit.tags[0];
+
+        if (isOffline) {
+          const localResult = classifyIssue(msg, this.demo.kb, this.thresholds);
+          score = localResult.confidence;
+          route = localResult.route;
+          type = localResult.type;
+          area = localResult.productArea;
+          kbId = localResult.bestKb ? localResult.bestKb.id : undefined;
+        } else {
+          if (route.includes('escalate') || score < this.thresholds.rewrite) {
+            type = 1;
+          } else if (score < this.thresholds.auto) {
+            type = 2;
+          }
+
+          if (response.context && response.context.length > 0) {
+            const topHit = response.context[0];
+            kbId = topHit.id;
+            if (topHit.tags && topHit.tags.length > 0) {
+              area = topHit.tags[0];
+            }
           }
         }
 
