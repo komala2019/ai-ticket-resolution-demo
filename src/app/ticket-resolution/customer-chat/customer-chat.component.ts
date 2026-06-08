@@ -146,9 +146,9 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
           if (localResult.type === 1) {
             aiStepText = "I couldn't find a confident match for this issue in our local knowledge base. I recommend opening a support ticket below so we can escalate this to the engineering team.";
           } else if (localResult.type === 2) {
-            aiStepText = "This matches a known issue: \"" + localResult.headline + "\". Workaround:\n" + localResult.intro;
+            aiStepText = "Based on your description, this matches a known issue: **" + localResult.headline + "** (" + localResult.confidence + "% confidence).\n\nWorkaround:\n" + localResult.intro;
           } else {
-            aiStepText = "Here is the recommended solution for \"" + localResult.headline + "\":\n" + localResult.intro;
+            aiStepText = "Based on your description, I found a matching resolution in our knowledge base: **" + localResult.headline + "** (" + localResult.confidence + "% confidence).\n\n" + localResult.intro;
           }
         }
       }
@@ -161,6 +161,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       let type = 3;
       let area = 'General';
       let kbId: string | undefined = undefined;
+      let evidence: { t: string; m: number }[] = [];
 
       if (isOffline) {
         const localResult = classifyIssue(msg, this.demo.kb, this.thresholds);
@@ -169,6 +170,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         type = localResult.type;
         area = localResult.productArea;
         kbId = localResult.bestKb ? localResult.bestKb.id : undefined;
+        evidence = localResult.evidence;
       } else {
         if (route.includes('escalate') || score < this.thresholds.rewrite) {
           type = 1;
@@ -182,8 +184,13 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
           if (topHit.tags && topHit.tags.length > 0) {
             area = topHit.tags[0];
           }
+          evidence = response.context.slice(0, 2).map(r => ({
+            t: `${r.id} · ${r.title}`,
+            m: Math.round(r.score * 100)
+          }));
         }
       }
+
 
       const priority = type === 1 ? 'P1' : (type === 2 ? 'P2' : 'P3');
 
@@ -259,6 +266,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         this.SCENARIOS['__custom'].productArea = area;
         this.SCENARIOS['__custom'].priority = finalPriority;
         this.SCENARIOS['__custom'].kbId = kbId;
+        this.SCENARIOS['__custom'].evidence = evidence;
 
         this.n = stepsList.length;
         this.halted = false;

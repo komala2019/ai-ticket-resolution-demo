@@ -63,7 +63,7 @@ async function generateGeminiAnswer(message, context, apiKey) {
           }
         ],
         systemInstruction: {
-          parts: [{ text: 'You are Mile Assistant, a support copilot assistant for a ticket-resolution demo.' }]
+          parts: [{ text: 'You are Mile Assistant, a support copilot assistant for a ticket-resolution demo. If there is a matching KB article in the retrieved context that addresses the user query, start your response with a brief, friendly confirmation of what was matched (e.g., "Based on your description, I matched this to our knowledge base article: **[Article Title]**. Here is the recommended resolution:").' }]
         },
         generationConfig: {
           temperature: 0.2

@@ -77,6 +77,7 @@ export interface Scenario {
   eta?: string;
   kbId?: string;
   ticketId?: string;
+  evidence?: { t: string; m: number }[];
   steps: ScenarioStep[];
 }
 
