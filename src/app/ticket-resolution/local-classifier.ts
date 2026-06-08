@@ -322,3 +322,89 @@ export function isVagueQuery(message: string): boolean {
 
   return false;
 }
+
+export interface ParsedResolution {
+  headline: string;
+  intro: string;
+  steps: string[];
+}
+
+export function parseResolutionText(text: string, fallbackHeadline: string): ParsedResolution {
+  const lines = (text || '').split('\n').map(l => l.trim()).filter(Boolean);
+  let headline = fallbackHeadline;
+  const steps: string[] = [];
+  const introParts: string[] = [];
+
+  // Try to find a bold section for the headline (e.g. **Article Title** or **This is a known issue**)
+  const boldMatch = text.match(/\*\*(.*?)\*\*/);
+  if (boldMatch && boldMatch[1] && boldMatch[1].trim().length > 3) {
+    headline = boldMatch[1].trim();
+  }
+
+  // Parse lines
+  for (const line of lines) {
+    // Match numbered list: "1. Open settings" or bullet list: "- Open settings" or "* Open settings"
+    const stepMatch = line.match(/^[-*•\d]+\.?\s+(.+)$/);
+    if (stepMatch && stepMatch[1]) {
+      const stepText = stepMatch[1].replace(/\*\*/g, '').trim();
+      if (stepText) {
+        steps.push(stepText);
+      }
+    } else {
+      const lowerLine = line.toLowerCase();
+      // If line is just stating the matching confirmation or fallback headline, skip it
+      if (line.includes('**' + headline + '**') && line.includes('matched')) {
+        continue;
+      }
+      
+      // If line is: "Based on your description, I found a matching resolution in our knowledge base: ...", skip it
+      if (lowerLine.startsWith('based on your description') && lowerLine.includes('matched')) {
+        continue;
+      }
+
+      // If it looks like steps inside a single line (like in the local fallback content)
+      if (lowerLine.includes('to resolve this,') || lowerLine.includes('workaround:')) {
+        const parts = line.split(/(?:to resolve this,|workaround:)/i);
+        if (parts[0].trim()) {
+          introParts.push(parts[0].trim().replace(/\*\*/g, ''));
+        }
+        if (parts[1]) {
+          // If the rest has action clauses separated by comma or "and"
+          const clauses = parts[1].split(/,\s+(?:and\s+)?|;\s+/i);
+          clauses.forEach(c => {
+            const cl = c.trim().replace(/\.$/, '').replace(/\*\*/g, '');
+            if (cl.length > 3) {
+              // Capitalize first letter
+              steps.push(cl.charAt(0).toUpperCase() + cl.slice(1));
+            }
+          });
+        }
+      } else {
+        // Remove markdown formatting
+        introParts.push(line.replace(/\*\*/g, ''));
+      }
+    }
+  }
+
+  // Fallback if no steps were extracted:
+  if (steps.length === 0) {
+    if (introParts.length > 0) {
+      const lastLine = introParts[introParts.length - 1];
+      const verbs = ['open', 'select', 'toggle', 'click', 'go', 'navigate', 'check', 'verify', 'run', 'configure', 'apply', 'stagger', 'direct', 'use', 'hard-refresh', 'refresh', 'advise'];
+      const firstWord = lastLine.split(/\s+/)[0]?.toLowerCase().replace(/[^a-z]/g, '');
+      if (verbs.includes(firstWord)) {
+        steps.push(introParts.pop()!);
+      }
+    }
+  }
+
+  // If we still have 0 steps, let's provide a default confirmation step
+  if (steps.length === 0) {
+    steps.push('Follow the instructions above to resolve the issue.');
+  }
+
+  const intro = introParts.join('\n\n').trim();
+
+  return { headline, intro, steps };
+}
+

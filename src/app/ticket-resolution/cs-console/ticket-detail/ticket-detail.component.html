@@ -46,7 +46,7 @@
             <span class="mini-avatar">{{ initials(ticket.customer) }}</span>
             <div>
               <div style="font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:2px;">{{ ticket.customer }}</div>
-              <div style="font-size:14px;color:var(--gray-700);line-height:21px;">"{{ customerQuote() }}"</div>
+              <div style="font-size:14px;color:var(--gray-700);line-height:21px;white-space:pre-wrap;">"{{ customerQuote() }}"</div>
               
               <!-- Display attachment if present -->
               <div *ngIf="ticket.attachment" style="margin-top:10px;border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);max-width:280px;background:var(--gray-50);padding:4px;">

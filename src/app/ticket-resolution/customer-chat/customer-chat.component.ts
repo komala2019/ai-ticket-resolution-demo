@@ -2,7 +2,7 @@ import { Component, Input, OnChanges, OnDestroy, ViewChild, ElementRef } from '@
 import { Subscription } from 'rxjs';
 import { SCENARIOS, SCENARIO_ORDER, TYPE_META, routeFor, Thresholds, ScenarioStep, Scenario, QueueTicket } from '../ticket-data';
 import { TicketResolutionApiService } from '../ticket-resolution-api.service';
-import { buildDynamicScenario, classifyIssue, isBugIntent, isVagueQuery } from '../local-classifier';
+import { buildDynamicScenario, classifyIssue, isBugIntent, isVagueQuery, parseResolutionText } from '../local-classifier';
 import { DemoStateService } from '../demo-state.service';
 
 type OutcomeKind = 'fixed' | 'notify' | 'failed' | null;
@@ -249,10 +249,46 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
           kind: 'classify'
         };
 
-        const aiStep: ScenarioStep = {
-          from: 'ai',
-          text: aiStepText
-        };
+        let aiStep: ScenarioStep;
+
+        if (finalType === 1) {
+          aiStep = {
+            from: 'ai',
+            kind: 'novel',
+            headline: isVague && this.rephraseCount === 3
+              ? "We need a bit more context to route this"
+              : "This looks like a new issue — escalating it with full context",
+            intro: isVague && this.rephraseCount === 3
+              ? "I couldn't identify a matching resolution or known bug. I've prepared a support ticket with what we have so far, but please add a description or attachment to help us diagnose it."
+              : "I don't have a confident fix in the knowledge base, so I won't guess. I've packaged everything engineering needs and flagged it " + finalPriority + ".",
+            captured: [
+              { k: 'Reported issue', v: msg.length > 90 ? msg.slice(0, 90) + '…' : msg },
+              { k: 'Product area', v: area },
+              { k: 'Priority', v: finalPriority },
+              { k: 'KB match', v: kbId ? (kbId + ' (' + finalScore + '%)') : 'none above threshold' },
+            ]
+          };
+        } else if (finalType === 2) {
+          const parsed = parseResolutionText(aiStepText, 'This is a known issue');
+          aiStep = {
+            from: 'ai',
+            kind: 'known',
+            headline: parsed.headline || 'This is a known issue we\'re already fixing',
+            intro: parsed.intro || 'Our team has a fix in progress.',
+            workaround: parsed.steps
+          };
+          this.SCENARIOS['__custom'].jira = kbId ? 'CS-' + kbId.slice(-3) : 'CS-4821';
+          this.SCENARIOS['__custom'].eta = 'Fix in progress — ~' + (3 + (kbId ? kbId.charCodeAt(kbId.length-1) % 5 : 2)) + ' days';
+        } else {
+          const parsed = parseResolutionText(aiStepText, 'Here\'s how to resolve this');
+          aiStep = {
+            from: 'ai',
+            kind: 'resolution',
+            headline: parsed.headline || 'Here\'s how to resolve this',
+            intro: parsed.intro || 'Follow the steps below to confirm the issue is resolved.',
+            resolutionSteps: parsed.steps
+          };
+        }
 
         if (thinkIdx !== -1) {
           stepsList[thinkIdx] = classifyStep;
@@ -314,6 +350,31 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     const ticketId = 'TCK-' + (maxId + 1);
     this.customTicketId = ticketId;
 
+    // Package conversation transcript
+    const customScenario = this.SCENARIOS['__custom'];
+    let chatHistory = '';
+    if (customScenario && customScenario.steps) {
+      chatHistory = customScenario.steps
+        .filter(s => s.kind !== 'thinking' && s.kind !== 'classify' && s.kind !== 'ticket-form')
+        .map(s => {
+          const sender = s.from === 'user' ? 'Customer' : 'AI';
+          let content = s.text || '';
+          if (s.kind === 'resolution' || s.kind === 'known') {
+            content = `[Matched KB Article: ${s.headline || ''}]\nIntro: ${s.intro || ''}`;
+            const steps = s.resolutionSteps || s.workaround || [];
+            if (steps.length > 0) {
+              content += '\nSteps:\n' + steps.map((step, idx) => `${idx + 1}. ${step}`).join('\n');
+            }
+          } else if (s.kind === 'novel') {
+            content = `[Escalation Details: ${s.headline || ''}]\nIntro: ${s.intro || ''}`;
+          }
+          return `${sender}: ${content}`;
+        })
+        .join('\n\n');
+    }
+
+    const fullDescription = this.formDesc + (chatHistory ? `\n\n=== Chat Transcript ===\n${chatHistory}` : '');
+
     const queueTicket: QueueTicket = {
       id: ticketId,
       confidence: result.confidence,
@@ -324,7 +385,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       company: 'Demo Session',
       age: 'just now',
       subject: this.formSubject,
-      description: this.formDesc,
+      description: fullDescription,
       attachment: this.formAttachment || undefined,
       draft: result.intro + (result.steps.length ? '\n' + result.steps.join('\n') : ''),
       evidence: result.evidence,
