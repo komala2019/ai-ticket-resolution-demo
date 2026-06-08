@@ -30,6 +30,11 @@ export interface ActivityItem {
  */
 @Injectable({ providedIn: 'root' })
 export class DemoStateService {
+  // --- Shared App State Observables ---
+  viewState$ = new BehaviorSubject<'customer' | 'console' | 'readme' | 'architecture' | null>(null);
+  tabState$ = new BehaviorSubject<'queue' | 'kb' | 'analytics' | 'golden' | null>(null);
+  kbQuery$ = new BehaviorSubject<string>('');
+
   // --- Queue (live, shared) --------------------------------------------
   queue: QueueTicket[] = QUEUE.map(t => ({ ...t }));
 

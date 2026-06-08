@@ -1,13 +1,14 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { KbEntry } from '../../ticket-data';
 import { DemoStateService } from '../../demo-state.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-tr-kb-manager',
   templateUrl: './kb-manager.component.html',
   styleUrls: ['./kb-manager.component.scss'],
 })
-export class KbManagerComponent {
+export class KbManagerComponent implements OnInit, OnDestroy {
   query = '';
   editId: string | null = null;
   editTitle = '';
@@ -18,10 +19,21 @@ export class KbManagerComponent {
   newTitle = '';
   newContent = '';
   newTags = '';
+  private sub?: Subscription;
 
   // The shared, live knowledge base — the SAME list the chat classifier reads,
   // so anything added/edited here immediately changes how issues resolve.
   constructor(public demo: DemoStateService) {}
+
+  ngOnInit() {
+    this.sub = this.demo.kbQuery$.subscribe(q => {
+      this.query = q || '';
+    });
+  }
+
+  ngOnDestroy() {
+    if (this.sub) this.sub.unsubscribe();
+  }
 
   get entries(): KbEntry[] { return this.demo.kb; }
 

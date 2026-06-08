@@ -1,6 +1,7 @@
-import { Component, OnDestroy } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { ROUTE_META, QUEUE, Thresholds, routeFor } from './ticket-data';
 import { DemoStateService } from './demo-state.service';
+import { Subscription } from 'rxjs';
 
 export interface ToastState { msg: string; tone: string; }
 
@@ -9,7 +10,7 @@ export interface ToastState { msg: string; tone: string; }
   templateUrl: './ticket-resolution.component.html',
   styleUrls: ['./ticket-resolution.component.scss'],
 })
-export class TicketResolutionComponent implements OnDestroy {
+export class TicketResolutionComponent implements OnInit, OnDestroy {
   view: 'customer' | 'console' | 'readme' | 'architecture' = 'customer';
   tab: 'queue' | 'kb' | 'analytics' | 'golden' = 'queue';
   selectedTicket: any = null;
@@ -21,8 +22,20 @@ export class TicketResolutionComponent implements OnDestroy {
   thresholds: Thresholds = { auto: 90, approve: 75, rewrite: 50 };
 
   ROUTE_META = ROUTE_META;
+  private subs: Subscription[] = [];
 
   constructor(public demo: DemoStateService) {}
+
+  ngOnInit() {
+    this.subs.push(
+      this.demo.viewState$.subscribe(v => {
+        if (v) this.view = v;
+      }),
+      this.demo.tabState$.subscribe(t => {
+        if (t) this.tab = t;
+      })
+    );
+  }
 
   toggleNotifications() {
     this.showNotificationsDropdown = !this.showNotificationsDropdown;
@@ -126,5 +139,6 @@ export class TicketResolutionComponent implements OnDestroy {
 
   ngOnDestroy() {
     clearTimeout(this.toastTimer);
+    this.subs.forEach(s => s.unsubscribe());
   }
 }

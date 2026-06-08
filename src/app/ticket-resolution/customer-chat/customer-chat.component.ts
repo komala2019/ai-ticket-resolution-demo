@@ -550,6 +550,17 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     return this.scenario.ticketId || ('#' + (5400 + this.scenario.type));
   }
 
+  goToReference(text: string) {
+    const match = text.match(/KB-\d+/);
+    if (match) {
+      const kbId = match[0];
+      this.demo.viewState$.next('console');
+      this.demo.tabState$.next('kb');
+      this.demo.kbQuery$.next(kbId);
+      this.demo.notify('Navigated to KB', `Showing reference for ${kbId}`, 'blue');
+    }
+  }
+
   ngOnDestroy() {
     clearTimeout(this.timer);
     if (this.sub) {
