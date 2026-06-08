@@ -72,28 +72,87 @@ function detectArea(haystack: string): string | null {
 }
 
 function scoreKb(haystack: string, kb: KbEntry[]): ScoredEntry[] {
-  const tokens = tokenize(haystack);
-  const results: ScoredEntry[] = [];
-  for (const entry of kb) {
-    const entryTokens = tokenize((entry.title || '') + ' ' + (entry.content || ''));
-    const tags = tagWords(entry.tags || []);
+  const queryTokens = tokenize(haystack);
+  if (queryTokens.size === 0) return [];
 
-    let overlap = 0;     // meaningful words shared with title/content
-    let tagOverlap = 0;  // shared with tag words (stronger signal)
-    tokens.forEach(t => {
-      if (entryTokens.has(t)) overlap++;
-      if (tags.has(t)) tagOverlap++;
+  // Build the vocabulary of the active KB
+  const vocabulary = new Set<string>();
+  const classTermCounts: Record<string, Map<string, number>> = {};
+  const classTotalTerms: Record<string, number> = {};
+  const classPriors: Record<string, number> = {};
+
+  let totalUses = 0;
+  for (const entry of kb) {
+    totalUses += (entry.uses || 1);
+  }
+
+  for (const entry of kb) {
+    classPriors[entry.id] = (entry.uses || 1) / totalUses;
+
+    const entryText = (entry.title || '') + ' ' + (entry.content || '') + ' ' + (entry.tags || []).join(' ');
+    const entryTokensList = Array.from(tokenize(entryText));
+    const counts = new Map<string, number>();
+    let total = 0;
+
+    entryTokensList.forEach(token => {
+      vocabulary.add(token);
+      counts.set(token, (counts.get(token) || 0) + 1);
+      total++;
     });
 
-    if (overlap === 0 && tagOverlap === 0) continue;
-
-    // Tag matches count double. ~3 solid matches is a confident hit.
-    const matches = overlap + tagOverlap;
-    let score = Math.round(Math.min(1, matches / 3) * 90);
-    if (matches > 0) score += 6;            // floor for any real overlap
-    score = Math.max(1, Math.min(97, score));
-    results.push({ entry, score });
+    classTermCounts[entry.id] = counts;
+    classTotalTerms[entry.id] = total;
   }
+
+  const V = vocabulary.size || 1;
+  const alpha = 0.5; // Laplace smoothing parameter
+
+  // Calculate log-likelihoods for each class
+  const logLikelihoods: Record<string, number> = {};
+  for (const entry of kb) {
+    let logProb = Math.log(classPriors[entry.id]);
+    const counts = classTermCounts[entry.id];
+    const totalTerms = classTotalTerms[entry.id];
+
+    queryTokens.forEach(token => {
+      const termCount = counts.get(token) || 0;
+      // Laplace smoothing: (count + alpha) / (totalTerms + alpha * V)
+      const pWordGivenClass = (termCount + alpha) / (totalTerms + alpha * V);
+      logProb += Math.log(pWordGivenClass);
+    });
+
+    logLikelihoods[entry.id] = logProb;
+  }
+
+  // Calculate log-likelihood for a virtual General/Noise class
+  // General prior is 0.5, and term probability is uniform (1/V)
+  let generalLogProb = Math.log(0.5);
+  queryTokens.forEach(() => {
+    generalLogProb += Math.log(1 / V);
+  });
+  logLikelihoods['__general'] = generalLogProb;
+
+  // Convert log-likelihoods to probabilities using Softmax normalization
+  const maxLog = Math.max(...Object.values(logLikelihoods));
+  const exps: Record<string, number> = {};
+  let sumExp = 0;
+  for (const [key, value] of Object.entries(logLikelihoods)) {
+    const expVal = Math.exp(value - maxLog);
+    exps[key] = expVal;
+    sumExp += expVal;
+  }
+
+  const results: ScoredEntry[] = [];
+  for (const entry of kb) {
+    const posteriorProb = exps[entry.id] / sumExp;
+    // Map probability to 0-100 percentage score scale
+    const score = Math.round(posteriorProb * 100);
+    // Only return matching entries that have a non-trivial score
+    if (score > 0) {
+      results.push({ entry, score });
+    }
+  }
+
   return results.sort((a, b) => b.score - a.score);
 }
 

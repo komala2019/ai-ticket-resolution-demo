@@ -115,6 +115,7 @@
   font-size: 14.5px;
   line-height: 21px;
   font-weight: 450;
+  white-space: pre-wrap;
   &.user {
     border-radius: 14px 14px 4px 14px;
     background: var(--primary-600);
