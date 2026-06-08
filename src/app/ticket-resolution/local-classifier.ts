@@ -241,3 +241,25 @@ export function buildDynamicScenario(message: string, kb: KbEntry[], thresholds:
     steps,
   };
 }
+export function isVagueQuery(message: string): boolean {
+  const msg = (message || '').toLowerCase().trim();
+  const words = msg.split(/\s+/).filter(Boolean);
+  const wordsCount = words.length;
+  if (wordsCount === 0) return true;
+  if (wordsCount < 3) return true;
+
+  // Check if it contains any bug/symptom keywords
+  const bugKeywords = [
+    'bug', 'error', 'fail', 'issue', 'problem', 'broken', 'crash', 
+    'wrong', 'missing', 'disappear', 'slow', 'disconnect', 'blank', 
+    'empty', 'spinner', 'greyed', 'cannot', 'can\'t', 'unable', 'help',
+    'gone', 'stop', 'stopped', 'lost', 'broke', 'suddenly', 'no longer'
+  ];
+
+  if (wordsCount < 6) {
+    const hasSymptom = bugKeywords.some(keyword => msg.includes(keyword));
+    return !hasSymptom;
+  }
+
+  return false;
+}

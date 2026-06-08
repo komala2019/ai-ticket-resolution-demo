@@ -2,7 +2,7 @@ import { Component, Input, OnChanges, OnDestroy, ViewChild, ElementRef } from '@
 import { Subscription } from 'rxjs';
 import { SCENARIOS, SCENARIO_ORDER, TYPE_META, routeFor, Thresholds, ScenarioStep, Scenario, QueueTicket } from '../ticket-data';
 import { TicketResolutionApiService } from '../ticket-resolution-api.service';
-import { buildDynamicScenario, classifyIssue, isBugIntent } from '../local-classifier';
+import { buildDynamicScenario, classifyIssue, isBugIntent, isVagueQuery } from '../local-classifier';
 import { DemoStateService } from '../demo-state.service';
 
 type OutcomeKind = 'fixed' | 'notify' | 'failed' | null;
@@ -78,6 +78,22 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     // Check if the intent is a potential bug or just plain language
     const isBug = isBugIntent(msg, this.demo.kb);
 
+    // Refresh context if user changed context or intent
+    const prevCustom = this.SCENARIOS['__custom'];
+    if (prevCustom && this.sid === '__custom') {
+      const prevIsBug = isBugIntent(prevCustom.summary, this.demo.kb);
+      const localResult = classifyIssue(msg, this.demo.kb, this.thresholds);
+      const newArea = localResult.productArea;
+      const prevArea = prevCustom.productArea || 'General';
+
+      const intentChanged = isBug !== prevIsBug || (isBug && newArea !== 'General' && newArea !== prevArea);
+
+      if (intentChanged) {
+        currentSteps = [];
+        this.rephraseCount = 0;
+      }
+    }
+
     const thinkingStep: ScenarioStep = {
       from: 'ai',
       kind: 'thinking',
@@ -137,12 +153,45 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         }
       }
 
-      const aiStep: ScenarioStep = {
-        from: 'ai',
-        text: aiStepText
-      };
+      // Check if the query is vague
+      const isVague = isVagueQuery(msg);
+
+      let score = response.confidence ?? 0;
+      let route = response.route || 'fallback';
+      let type = 3;
+      let area = 'General';
+      let kbId: string | undefined = undefined;
+
+      if (isOffline) {
+        const localResult = classifyIssue(msg, this.demo.kb, this.thresholds);
+        score = localResult.confidence;
+        route = localResult.route;
+        type = localResult.type;
+        area = localResult.productArea;
+        kbId = localResult.bestKb ? localResult.bestKb.id : undefined;
+      } else {
+        if (route.includes('escalate') || score < this.thresholds.rewrite) {
+          type = 1;
+        } else if (score < this.thresholds.auto) {
+          type = 2;
+        }
+
+        if (response.context && response.context.length > 0) {
+          const topHit = response.context[0];
+          kbId = topHit.id;
+          if (topHit.tags && topHit.tags.length > 0) {
+            area = topHit.tags[0];
+          }
+        }
+      }
+
+      const priority = type === 1 ? 'P1' : (type === 2 ? 'P2' : 'P3');
 
       if (!isBug) {
+        const aiStep: ScenarioStep = {
+          from: 'ai',
+          text: aiStepText
+        };
         // For general chit-chat: just display the AI's reply bubble without classification or thumbs
         if (thinkIdx !== -1) {
           stepsList[thinkIdx] = aiStep;
@@ -151,11 +200,51 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         }
         this.n = stepsList.length;
         this.halted = false; // Allow user to reply immediately
+      } else if (isVague && this.rephraseCount < 2) {
+        // Vague query - step 1 or 2 of the clarification loop
+        this.rephraseCount++;
+        const clarifyText = this.rephraseCount === 1
+          ? `I see you're referencing the **${area}** area, but I need more details to suggest the right fix. Could you please describe what is happening (e.g., is the widget missing, are you seeing an error code, or is a button disabled)?`
+          : `I want to make sure I don't guess. Could you try describing the issue with a bit more context?`;
+
+        const aiStep: ScenarioStep = {
+          from: 'ai',
+          text: clarifyText
+        };
+        if (thinkIdx !== -1) {
+          stepsList[thinkIdx] = aiStep;
+        } else {
+          stepsList.push(aiStep);
+        }
+        this.n = stepsList.length;
+        this.halted = false; // Keep composer active for response
       } else {
-        // For bug reports: show classification card and direct thumbs/ticket actions
+        // Detailed query, or vague query that has failed clarification twice
+        let finalType = type;
+        let finalPriority = priority;
+        let finalScore = score;
+        let finalRoute = route;
+
+        if (isVague && this.rephraseCount === 2) {
+          this.rephraseCount = 3;
+          finalType = 1;
+          finalPriority = 'P3';
+          finalScore = Math.min(score, this.thresholds.rewrite - 5);
+          finalRoute = 'eng';
+          aiStepText = "I'm preparing to open a support ticket for our engineering team. To help us diagnose this faster, could you please upload a short screenshot/video recording of the issue, or describe the exact steps to reproduce it?";
+        } else {
+          // Reset rephrase count for successful detailed queries
+          this.rephraseCount = 0;
+        }
+
         const classifyStep: ScenarioStep = {
           from: 'ai',
           kind: 'classify'
+        };
+
+        const aiStep: ScenarioStep = {
+          from: 'ai',
+          text: aiStepText
         };
 
         if (thinkIdx !== -1) {
@@ -165,50 +254,19 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
           stepsList.push(classifyStep, aiStep);
         }
 
-        let score = response.confidence ?? 0;
-        let route = response.route || 'fallback';
-        let type = 3;
-        let area = 'General';
-        let kbId: string | undefined = undefined;
-
-        if (isOffline) {
-          const localResult = classifyIssue(msg, this.demo.kb, this.thresholds);
-          score = localResult.confidence;
-          route = localResult.route;
-          type = localResult.type;
-          area = localResult.productArea;
-          kbId = localResult.bestKb ? localResult.bestKb.id : undefined;
-        } else {
-          if (route.includes('escalate') || score < this.thresholds.rewrite) {
-            type = 1;
-          } else if (score < this.thresholds.auto) {
-            type = 2;
-          }
-
-          if (response.context && response.context.length > 0) {
-            const topHit = response.context[0];
-            kbId = topHit.id;
-            if (topHit.tags && topHit.tags.length > 0) {
-              area = topHit.tags[0];
-            }
-          }
-        }
-
-        const priority = type === 1 ? 'P1' : (type === 2 ? 'P2' : 'P3');
-
-        this.SCENARIOS['__custom'].type = type;
-        this.SCENARIOS['__custom'].confidence = score;
+        this.SCENARIOS['__custom'].type = finalType;
+        this.SCENARIOS['__custom'].confidence = finalScore;
         this.SCENARIOS['__custom'].productArea = area;
-        this.SCENARIOS['__custom'].priority = priority;
+        this.SCENARIOS['__custom'].priority = finalPriority;
         this.SCENARIOS['__custom'].kbId = kbId;
 
         this.n = stepsList.length;
         this.halted = false;
 
-        if (type === 1) {
+        if (finalType === 1) {
           this.formSubject = msg.length > 80 ? msg.slice(0, 77) + '…' : msg;
           this.formArea = area;
-          this.formPriority = priority;
+          this.formPriority = finalPriority;
           this.formDesc = msg;
           this.formAttachment = attachment || null;
           this.formSubmitted = false;
@@ -216,7 +274,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
           stepsList.push({ from: 'ai', kind: 'ticket-form' });
           this.n = stepsList.length;
           this.halted = true;
-        } else if (type === 2) {
+        } else if (finalType === 2) {
           stepsList.push({
             from: 'ai',
             kind: 'confirm',
