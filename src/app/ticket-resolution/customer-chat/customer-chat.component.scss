@@ -290,6 +290,7 @@
   &.done { background: var(--gray-50); }
   input {
     flex: 1;
+    min-width: 0;
     border: none;
     outline: none;
     background: transparent;
