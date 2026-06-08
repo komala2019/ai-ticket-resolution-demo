@@ -442,13 +442,27 @@
     height: auto;
   }
   .chat-window {
-    height: 550px;
+    height: calc(100vh - 140px);
+    min-height: 380px;
+    max-height: 600px;
   }
   .status-rail {
     width: 100%;
   }
   .bubble {
     max-width: 90%;
+  }
+  .scenario-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 8px 12px;
+    -webkit-overflow-scrolling: touch;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+  .scenario-chip {
+    flex-shrink: 0;
   }
 }
 
@@ -476,6 +490,9 @@
   }
   .human-btn {
     padding: 7px;
+  }
+  .scenario-label-extra {
+    display: none;
   }
 }
 

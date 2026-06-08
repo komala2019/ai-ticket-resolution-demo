@@ -26,7 +26,9 @@
 
     <!-- Scenario picker -->
     <div class="scenario-bar">
-      <span style="font-size:12px;color:var(--gray-500);align-self:center;margin-right:2px;">Try a scenario:</span>
+      <span style="font-size:12px;color:var(--gray-500);align-self:center;margin-right:2px;flex-shrink:0;">
+        Try<span class="scenario-label-extra"> a scenario</span>:
+      </span>
       <button
         *ngFor="let id of SCENARIO_ORDER"
         class="scenario-chip"
