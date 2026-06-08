@@ -44,6 +44,7 @@ export interface ChatResponse {
   confidence?: number;
   model?: string;
   traceId?: string;
+  context?: any[];
 }
 
 /**

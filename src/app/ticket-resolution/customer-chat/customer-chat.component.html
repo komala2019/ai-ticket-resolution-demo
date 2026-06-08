@@ -44,17 +44,7 @@
 
     <!-- Messages -->
     <div class="chat-messages" #scrollEl>
-      <div *ngIf="liveAnswer" class="msg-row ai">
-        <span class="ai-avatar sz30"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg></span>
-        <div class="ai-card" style="flex:1;min-width:0;" title="Live answer returned by the backend assistant.">
-          <div class="ai-card-accent" style="background:var(--primary-600)"></div>
-          <div style="padding:16px;">
-            <div style="font-size:12px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Live assistant</div>
-            <div style="font-size:14px;color:var(--gray-800);line-height:22px;white-space:pre-wrap;">{{ liveAnswer }}</div>
-          </div>
-        </div>
-      </div>
-
+      
       <ng-container *ngFor="let step of visible; let i = index">
         <!-- Thinking -->
         <div *ngIf="step.kind === 'thinking'" class="msg-thinking">

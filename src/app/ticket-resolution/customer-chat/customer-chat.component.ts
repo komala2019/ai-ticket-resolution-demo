@@ -53,7 +53,6 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
 
   get scenario(): Scenario { return this.SCENARIOS[this.sid]; }
 
-  /** User submitted their own issue → classify it client-side and play it. */
   onSend() {
     const text = this.composerText.trim();
     if (!text && !this.pendingAttachment) return;
@@ -63,209 +62,127 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
 
     const msg = text || 'Please take a look at the attached file.';
 
-    let currentVisible: ScenarioStep[] = [];
-    if (this.sid === 'custom' || this.sid === '__custom') {
-      const currentScenario = this.SCENARIOS[this.sid];
-      if (currentScenario) {
-        currentVisible = currentScenario.steps.slice(0, this.n);
-      }
-    }
-
-    const result = classifyIssue(msg, this.demo.kb, this.thresholds);
-
-    // Check if the intent is a potential bug or just plain language
-    const isBug = isBugIntent(msg, this.demo.kb);
-    if (!isBug) {
-      const newSteps: ScenarioStep[] = [
-        { from: 'user', text: msg },
-        { from: 'ai', kind: 'thinking', text: 'Analyzing your response…' },
-        { from: 'ai', text: "If you have any issue, please type it out related to the product like Booking Engine, Analytics, Email campaigns, Integrations, or Account." }
-      ];
-      if (attachment) newSteps[0].attachment = attachment;
-
-      const dyn: Scenario = {
-        id: '__custom',
-        label: 'Your issue',
-        type: 3,
-        confidence: 0,
-        productArea: 'General',
-        priority: 'P3',
-        summary: msg,
-        steps: [...currentVisible, ...newSteps]
-      };
-
-      this.SCENARIOS = { ...this.SCENARIOS, __custom: dyn };
-      this.sid = '__custom';
-      this.n = currentVisible.length;
-      this.halted = false;
-      this.outcome = null;
-      this.agentJoined = false;
-      this.liveAnswer = null;
-      clearTimeout(this.timer);
-      this.startPlayback();
-
-      this.api.chat(msg).subscribe(response => {
-        if (response?.answer) {
-          this.liveAnswer = response.answer;
-        }
-      });
-      return;
-    }
-
-    if (result.type === 1) {
-      const hasVideo = currentVisible.some(s => s.attachment && s.attachment.kind === 'video') || (attachment && attachment.kind === 'video');
-
-      if (this.rephraseCount < 2) {
-        this.rephraseCount++;
-        
-        const newSteps: ScenarioStep[] = [
-          { from: 'user', text: msg },
-          { from: 'ai', kind: 'thinking', text: 'Matching against the knowledge base and past tickets…' }
-        ];
-        if (attachment) newSteps[0].attachment = attachment;
-
-        const promptText = this.rephraseCount === 1
-          ? "Could you please rephrase your request? I want to make sure I understand the issue clearly before suggesting a fix."
-          : "I want to be extra careful not to guess. Could you try rephrasing one more time? If we still can't find a match, I'll escalate this to our engineering team.";
-
-        newSteps.push({ from: 'ai', text: promptText });
-
-        const dyn: Scenario = {
-          id: '__custom',
-          label: 'Your issue',
-          type: result.type,
-          confidence: result.confidence,
-          productArea: result.productArea,
-          priority: result.priority,
-          summary: msg,
-          steps: [...currentVisible, ...newSteps]
-        };
-
-        this.SCENARIOS = { ...this.SCENARIOS, __custom: dyn };
-        this.sid = '__custom';
-        this.n = currentVisible.length;
-        this.halted = false;
-        this.outcome = null;
-        this.agentJoined = false;
-        this.liveAnswer = null;
-        clearTimeout(this.timer);
-        this.startPlayback();
-      } else if (this.rephraseCount === 2 && !hasVideo) {
-        // Ask for video/clarification before ticket creation
-        this.rephraseCount = 3;
-
-        const newSteps: ScenarioStep[] = [
-          { from: 'user', text: msg },
-          { from: 'ai', kind: 'thinking', text: 'Preparing ticket details…' }
-        ];
-        if (attachment) newSteps[0].attachment = attachment;
-
-        newSteps.push({
-          from: 'ai',
-          text: "I'm preparing to open a support ticket for our engineering team. To help us diagnose this faster, could you please upload a short video recording of the issue, or describe the exact steps to reproduce it?"
-        });
-
-        const dyn: Scenario = {
-          id: '__custom',
-          label: 'Your issue',
-          type: result.type,
-          confidence: result.confidence,
-          productArea: result.productArea,
-          priority: result.priority,
-          summary: msg,
-          steps: [...currentVisible, ...newSteps]
-        };
-
-        this.SCENARIOS = { ...this.SCENARIOS, __custom: dyn };
-        this.sid = '__custom';
-        this.n = currentVisible.length;
-        this.halted = false;
-        this.outcome = null;
-        this.agentJoined = false;
-        this.liveAnswer = null;
-        clearTimeout(this.timer);
-        this.startPlayback();
-      } else {
-        const prevAttach = currentVisible.slice().reverse().find(s => s.attachment)?.attachment;
-        // Prepare form before ticket creation
-        this.formSubject = msg.length > 80 ? msg.slice(0, 77) + '…' : msg;
-        this.formArea = result.productArea;
-        this.formPriority = result.priority;
-        this.formDesc = msg;
-        this.formAttachment = attachment || prevAttach || null;
-        this.formSubmitted = false;
-
-        const newSteps: ScenarioStep[] = [
-          { from: 'user', text: msg },
-          { from: 'ai', kind: 'thinking', text: 'Preparing ticket details…' },
-          { from: 'ai', kind: 'ticket-form' }
-        ];
-        if (attachment) newSteps[0].attachment = attachment;
-
-        const dyn: Scenario = {
-          id: '__custom',
-          label: 'Your issue',
-          type: result.type,
-          confidence: result.confidence,
-          productArea: result.productArea,
-          priority: result.priority,
-          summary: msg,
-          steps: [...currentVisible, ...newSteps]
-        };
-
-        this.SCENARIOS = { ...this.SCENARIOS, __custom: dyn };
-        this.sid = '__custom';
-        this.n = currentVisible.length;
-        this.halted = false;
-        this.outcome = null;
-        this.agentJoined = false;
-        this.liveAnswer = null;
-        clearTimeout(this.timer);
-        this.startPlayback();
-      }
+    let currentSteps: ScenarioStep[] = [];
+    if (this.sid === '__custom' && this.SCENARIOS['__custom']) {
+      currentSteps = this.SCENARIOS['__custom'].steps.slice(0, this.n);
     } else {
-      // High/medium confidence match, resolve inline
-      const dynamicPlayable = buildDynamicScenario(msg, this.demo.kb, this.thresholds);
-      
-      const newSteps: ScenarioStep[] = [
-        { from: 'user', text: msg },
-        { from: 'ai', kind: 'thinking', text: 'Matching against the knowledge base and past tickets…' },
-        { from: 'ai', kind: 'classify' },
-      ];
-      if (attachment) newSteps[0].attachment = attachment;
-
-      const outcomeSteps = dynamicPlayable.steps.slice(3);
-      newSteps.push(...outcomeSteps);
-
-      const dyn: Scenario = {
-        id: '__custom',
-        label: 'Your issue',
-        type: dynamicPlayable.type,
-        confidence: dynamicPlayable.confidence,
-        productArea: dynamicPlayable.productArea,
-        priority: dynamicPlayable.priority,
-        summary: msg,
-        jira: dynamicPlayable.jira,
-        eta: dynamicPlayable.eta,
-        kbId: dynamicPlayable.kbId,
-        steps: [...currentVisible, ...newSteps]
-      };
-
-      this.SCENARIOS = { ...this.SCENARIOS, __custom: dyn };
-      this.sid = '__custom';
-      this.n = currentVisible.length;
-      this.halted = false;
-      this.outcome = null;
-      this.agentJoined = false;
-      this.liveAnswer = null;
-      clearTimeout(this.timer);
-      this.startPlayback();
+      currentSteps = this.scenario.steps.slice(0, this.n);
     }
+
+    // Filter out thinking, confirm, and ticket-form steps from history
+    currentSteps = currentSteps.filter(s => s.kind !== 'thinking' && s.kind !== 'confirm' && s.kind !== 'ticket-form');
+
+    const userStep: ScenarioStep = { from: 'user', text: msg };
+    if (attachment) userStep.attachment = attachment;
+
+    const thinkingStep: ScenarioStep = { from: 'ai', kind: 'thinking', text: 'Consulting Knowledge Base...' };
+    currentSteps.push(userStep, thinkingStep);
+
+    const customScenario: Scenario = {
+      id: '__custom',
+      label: 'Your issue',
+      type: 3,
+      confidence: 90,
+      productArea: 'General',
+      priority: 'P3',
+      summary: msg,
+      steps: currentSteps
+    };
+
+    this.SCENARIOS = { ...this.SCENARIOS, __custom: customScenario };
+    this.sid = '__custom';
+    this.n = currentSteps.length;
+    this.halted = true;
+    this.outcome = null;
+    this.agentJoined = false;
+    this.liveAnswer = null;
+    clearTimeout(this.timer);
+    setTimeout(() => this.scrollToBottom(), 50);
 
     this.api.chat(msg).subscribe(response => {
-      if (response?.answer) {
-        this.liveAnswer = response.answer;
+      const stepsList = this.SCENARIOS['__custom'].steps;
+      const thinkIdx = stepsList.findIndex(s => s.kind === 'thinking');
+
+      const aiStep: ScenarioStep = {
+        from: 'ai',
+        text: response.answer || 'No reply returned.'
+      };
+
+      const classifyStep: ScenarioStep = {
+        from: 'ai',
+        kind: 'classify'
+      };
+
+      if (thinkIdx !== -1) {
+        stepsList[thinkIdx] = classifyStep;
+        stepsList.splice(thinkIdx + 1, 0, aiStep);
+      } else {
+        stepsList.push(classifyStep, aiStep);
       }
+
+      const score = response.confidence ?? 0;
+      const route = response.route || 'fallback';
+      
+      let type = 3;
+      if (route.includes('escalate') || score < this.thresholds.rewrite) {
+        type = 1;
+      } else if (score < this.thresholds.auto) {
+        type = 2;
+      }
+
+      let area = 'General';
+      let kbId: string | undefined = undefined;
+      if (response.context && response.context.length > 0) {
+        const topHit = response.context[0];
+        kbId = topHit.id;
+        if (topHit.tags && topHit.tags.length > 0) {
+          area = topHit.tags[0];
+        }
+      }
+
+      const priority = type === 1 ? 'P1' : (type === 2 ? 'P2' : 'P3');
+
+      this.SCENARIOS['__custom'].type = type;
+      this.SCENARIOS['__custom'].confidence = score;
+      this.SCENARIOS['__custom'].productArea = area;
+      this.SCENARIOS['__custom'].priority = priority;
+      this.SCENARIOS['__custom'].kbId = kbId;
+
+      this.n = stepsList.length;
+      this.halted = false;
+
+      if (type === 1) {
+        this.formSubject = msg.length > 80 ? msg.slice(0, 77) + '…' : msg;
+        this.formArea = area;
+        this.formPriority = priority;
+        this.formDesc = msg;
+        this.formAttachment = attachment || null;
+        this.formSubmitted = false;
+
+        stepsList.push({ from: 'ai', kind: 'ticket-form' });
+        this.n = stepsList.length;
+        this.halted = true;
+      } else if (type === 2) {
+        stepsList.push({
+          from: 'ai',
+          kind: 'confirm',
+          text: 'That workaround should get you unblocked. Want me to notify you when the permanent fix ships?',
+          positive: 'Yes, notify me',
+          negative: "Workaround didn't help"
+        });
+        this.n = stepsList.length;
+        this.halted = true;
+      } else {
+        stepsList.push({
+          from: 'ai',
+          kind: 'confirm',
+          text: 'Did this resolve your issue?'
+        });
+        this.n = stepsList.length;
+        this.halted = true;
+      }
+
+      setTimeout(() => this.scrollToBottom(), 50);
     });
   }
 
