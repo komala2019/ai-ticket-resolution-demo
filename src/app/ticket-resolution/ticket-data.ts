@@ -52,7 +52,7 @@ export const TYPE_META: Record<number, TypeMeta> = {
 export interface ScenarioStep {
   from: 'user' | 'ai';
   text?: string;
-  kind?: 'clarify' | 'thinking' | 'classify' | 'resolution' | 'known' | 'novel' | 'confirm' | 'status';
+  kind?: 'clarify' | 'thinking' | 'classify' | 'resolution' | 'known' | 'novel' | 'confirm' | 'status' | 'ticket-form';
   chips?: string[];
   headline?: string;
   intro?: string;
@@ -168,6 +168,8 @@ export interface QueueTicket {
   reopen: number;
   novel?: boolean;
   status?: 'approved' | 'escalated';
+  description?: string;
+  attachment?: { name: string; url: string; kind: 'image' | 'video' };
 }
 
 export const QUEUE: QueueTicket[] = [

@@ -29,6 +29,14 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   halted = false;
   outcome: OutcomeKind = null;
 
+  // Ticket Form State
+  formSubject = '';
+  formArea = '';
+  formPriority = 'P3';
+  formDesc = '';
+  formAttachment: { name: string; url: string; kind: 'image' | 'video' } | null = null;
+  formSubmitted = false;
+
   /** Free-text the user types in the composer. */
   composerText = '';
   /** Pending media attachment (image/video) staged in the composer. */
@@ -178,52 +186,19 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         clearTimeout(this.timer);
         this.startPlayback();
       } else {
-        // Create ticket and escalate
-        const maxId = Math.max(...this.demo.queue.map(t => parseInt(t.id.replace('TCK-', ''), 10) || 0), 2050);
-        const ticketId = 'TCK-' + (maxId + 1);
-        this.customTicketId = ticketId;
-
-        const queueTicket: QueueTicket = {
-          id: ticketId,
-          confidence: result.confidence,
-          type: result.type,
-          priority: result.priority,
-          area: result.productArea,
-          customer: 'You (Demo User)',
-          company: 'Demo Session',
-          age: 'just now',
-          subject: msg.length > 80 ? msg.slice(0, 77) + '…' : msg,
-          draft: result.intro + (result.steps.length ? '\n' + result.steps.join('\n') : ''),
-          evidence: result.evidence,
-          reopen: 0,
-          novel: true,
-        };
-        this.demo.queue = [...this.demo.queue, queueTicket];
-        this.demo.notify(
-          'New ticket created',
-          ticketId + ' · ' + result.productArea + ' · ' + result.confidence + '% confidence',
-          'purple'
-        );
+        const prevAttach = currentVisible.slice().reverse().find(s => s.attachment)?.attachment;
+        // Prepare form before ticket creation
+        this.formSubject = msg.length > 80 ? msg.slice(0, 77) + '…' : msg;
+        this.formArea = result.productArea;
+        this.formPriority = result.priority;
+        this.formDesc = msg;
+        this.formAttachment = attachment || prevAttach || null;
+        this.formSubmitted = false;
 
         const newSteps: ScenarioStep[] = [
           { from: 'user', text: msg },
-          { from: 'ai', kind: 'thinking', text: 'Matching against the knowledge base and past tickets…' },
-          { from: 'ai', kind: 'classify' },
-          {
-            from: 'ai', kind: 'novel',
-            headline: "We've escalated this to our support team",
-            intro: "I couldn't find a direct match in our knowledge base after a few attempts, so I've opened a P1 ticket to get this resolved by a human specialist.",
-            captured: [
-              { k: 'Reported issue', v: msg.length > 90 ? msg.slice(0, 90) + '…' : msg },
-              { k: 'Product area', v: result.productArea },
-              { k: 'Priority', v: result.priority },
-              { k: 'KB match', v: 'none above threshold' },
-            ],
-          },
-          {
-            from: 'ai', kind: 'status',
-            text: `I've opened ticket ${ticketId} and routed it to the ${result.productArea} team. A support specialist will follow up shortly.`
-          }
+          { from: 'ai', kind: 'thinking', text: 'Preparing ticket details…' },
+          { from: 'ai', kind: 'ticket-form' }
         ];
         if (attachment) newSteps[0].attachment = attachment;
 
@@ -294,6 +269,62 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     });
   }
 
+  onSubmitForm() {
+    this.formSubmitted = true;
+    const result = classifyIssue(this.formDesc, this.demo.kb, this.thresholds);
+    const maxId = Math.max(...this.demo.queue.map(t => parseInt(t.id.replace('TCK-', ''), 10) || 0), 2050);
+    const ticketId = 'TCK-' + (maxId + 1);
+    this.customTicketId = ticketId;
+
+    const queueTicket: QueueTicket = {
+      id: ticketId,
+      confidence: result.confidence,
+      type: result.type,
+      priority: this.formPriority,
+      area: this.formArea,
+      customer: 'You (Demo User)',
+      company: 'Demo Session',
+      age: 'just now',
+      subject: this.formSubject,
+      description: this.formDesc,
+      attachment: this.formAttachment || undefined,
+      draft: result.intro + (result.steps.length ? '\n' + result.steps.join('\n') : ''),
+      evidence: result.evidence,
+      reopen: 0,
+      novel: true,
+    };
+    this.demo.queue = [...this.demo.queue, queueTicket];
+    this.demo.notify(
+      'New ticket created',
+      ticketId + ' · ' + this.formArea + ' · ' + this.formPriority,
+      'purple'
+    );
+
+    const dyn = this.SCENARIOS[this.sid];
+    if (dyn) {
+      const currentVisible = dyn.steps.slice(0, this.n);
+      const statusStep: ScenarioStep = {
+        from: 'ai',
+        kind: 'status',
+        text: `I've opened ticket ${ticketId} and routed it to the ${this.formArea} team with a ${this.formPriority === 'P1' ? '1-hour' : this.formPriority === 'P2' ? '4-hour' : '24-hour'} SLA. A support specialist will follow up shortly.`
+      };
+      dyn.steps = [...currentVisible, statusStep];
+      dyn.type = result.type;
+      dyn.confidence = result.confidence;
+      dyn.productArea = this.formArea;
+      dyn.priority = this.formPriority;
+      dyn.summary = this.formSubject;
+
+      this.n = currentVisible.length;
+      this.halted = false;
+      this.outcome = null;
+      this.agentJoined = false;
+      this.liveAnswer = null;
+      clearTimeout(this.timer);
+      this.startPlayback();
+    }
+  }
+
   /** Composer file picker → stage an image/video preview. */
   onAttach(ev: Event) {
     const input = ev.target as HTMLInputElement;
@@ -304,6 +335,17 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     input.value = '';
   }
   clearAttachment() { this.pendingAttachment = null; }
+
+  /** Form file picker → stage an image/video preview for the ticket. */
+  onFormAttach(ev: Event) {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const kind: 'image' | 'video' = file.type.startsWith('video') ? 'video' : 'image';
+    this.formAttachment = { name: file.name, url: URL.createObjectURL(file), kind };
+    input.value = '';
+  }
+  clearFormAttachment() { this.formAttachment = null; }
 
   /** "Talk to a human" — simulate a live agent joining the conversation. */
   requestAgent() {
@@ -330,6 +372,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   get last(): ScenarioStep | null { return this.steps[this.n - 1] || null; }
   get pendingClarify(): boolean { return this.halted && !!this.last && this.last.kind === 'clarify'; }
   get pendingConfirm(): boolean { return this.halted && !this.outcome && !!this.last && this.last.kind === 'confirm'; }
+  get pendingForm(): boolean { return this.halted && !this.formSubmitted && !!this.last && this.last.kind === 'ticket-form'; }
   get done(): boolean { return !this.steps[this.n] || !!this.outcome; }
 
   ngOnChanges() { /* thresholds change — no reset needed */ }
@@ -353,6 +396,12 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     this.outcome = null;
     this.customTicketId = null;
     this.rephraseCount = 0;
+    this.formSubject = '';
+    this.formArea = '';
+    this.formPriority = 'P3';
+    this.formDesc = '';
+    this.formAttachment = null;
+    this.formSubmitted = false;
     clearTimeout(this.timer);
 
     const ticketId = this.scenario.ticketId;

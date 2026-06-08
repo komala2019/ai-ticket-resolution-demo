@@ -497,3 +497,85 @@
   }
 }
 
+.chat-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 6px;
+}
+.chat-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.chat-form-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.chat-form-input, .chat-form-select, .chat-form-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: var(--gray-900);
+  background: var(--tr-surface, #fff);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+  &:focus {
+    border-color: var(--primary-600);
+  }
+}
+.chat-form-textarea {
+  resize: vertical;
+}
+.chat-form-submit-btn {
+  width: 100%;
+  padding: 9px 16px;
+  background: var(--primary-600);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: inherit;
+  &:hover {
+    background: var(--primary-700);
+  }
+}
+.chat-form-attach-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-300);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--gray-700);
+  font-weight: 500;
+  transition: all 0.2s;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(16,24,40,.05);
+  &:hover {
+    background: var(--gray-100);
+    border-color: var(--gray-400);
+  }
+}
+
+/* Make sure form labels and controls adapt well in dark mode */
+@media (prefers-color-scheme: dark) {
+  .chat-form-input, .chat-form-select, .chat-form-textarea {
+    border-color: var(--gray-400);
+    color: var(--gray-900);
+    background: var(--gray-100);
+  }
+}
+
