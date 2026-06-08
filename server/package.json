@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node server/index.js"
+    "dev": "node index.js"
   },
   "dependencies": {
+    "@lancedb/lancedb": "^0.30.0",
     "cors": "^2.8.5",
     "express": "^4.19.2"
   }

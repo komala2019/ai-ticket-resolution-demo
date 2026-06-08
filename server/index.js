@@ -1,6 +1,6 @@
 import cors from 'cors';
 import express from 'express';
-import { retrieveContext } from './services/vector.service.js';
+import { retrieveContext, initDatabase } from './services/vector.service.js';
 import { generateAnswer } from './services/llm.service.js';
 import { trace } from './utils/traces.js';
 
@@ -42,6 +42,8 @@ app.post('/api/chat', async (req, res) => {
 });
 
 const port = process.env.PORT || 3001;
-app.listen(port, () => {
-  console.log(`Mile Assistant API listening on http://localhost:${port}`);
+initDatabase().then(() => {
+  app.listen(port, () => {
+    console.log(`Mile Assistant API listening on http://localhost:${port}`);
+  });
 });
