@@ -106,6 +106,24 @@ function mentionsKnownBug(e: KbEntry): boolean {
     c.includes('workaround') || (e.tags || []).some(t => t.includes('bug'));
 }
 
+export function isBugIntent(message: string, kb: KbEntry[]): boolean {
+  const msg = (message || '').toLowerCase();
+  const scored = scoreKb(msg, kb);
+  if (scored.length > 0 && scored[0].score > 30) return true;
+  for (const area of Object.keys(AREA_KEYWORDS)) {
+    const keywords = AREA_KEYWORDS[area];
+    if (keywords.some(k => msg.includes(k))) return true;
+  }
+  const bugKeywords = [
+    ...NOVEL_SIGNALS,
+    'bug', 'error', 'fail', 'issue', 'problem', 'broken', 'crash', 
+    'wrong', 'missing', 'disappear', 'slow', 'disconnect', 'blank', 
+    'empty', 'spinner', 'greyed', 'cannot', 'can\'t', 'unable', 'help'
+  ];
+  if (bugKeywords.some(bk => msg.includes(bk))) return true;
+  return false;
+}
+
 export interface LocalClassifyResult {
   type: number;
   confidence: number;

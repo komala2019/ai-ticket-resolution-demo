@@ -2,7 +2,7 @@ import { Component, Input, OnChanges, OnDestroy, ViewChild, ElementRef } from '@
 import { Subscription } from 'rxjs';
 import { SCENARIOS, SCENARIO_ORDER, TYPE_META, routeFor, Thresholds, ScenarioStep, Scenario, QueueTicket } from '../ticket-data';
 import { TicketResolutionApiService } from '../ticket-resolution-api.service';
-import { buildDynamicScenario, classifyIssue } from '../local-classifier';
+import { buildDynamicScenario, classifyIssue, isBugIntent } from '../local-classifier';
 import { DemoStateService } from '../demo-state.service';
 
 type OutcomeKind = 'fixed' | 'notify' | 'failed' | null;
@@ -64,6 +64,45 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     }
 
     const result = classifyIssue(msg, this.demo.kb, this.thresholds);
+
+    // Check if the intent is a potential bug or just plain language
+    const isBug = isBugIntent(msg, this.demo.kb);
+    if (!isBug) {
+      const newSteps: ScenarioStep[] = [
+        { from: 'user', text: msg },
+        { from: 'ai', kind: 'thinking', text: 'Analyzing your response…' },
+        { from: 'ai', text: "If you have any issue, please type it out related to the product like Booking Engine, Analytics, Email campaigns, Integrations, or Account." }
+      ];
+      if (attachment) newSteps[0].attachment = attachment;
+
+      const dyn: Scenario = {
+        id: '__custom',
+        label: 'Your issue',
+        type: 3,
+        confidence: 0,
+        productArea: 'General',
+        priority: 'P3',
+        summary: msg,
+        steps: [...currentVisible, ...newSteps]
+      };
+
+      this.SCENARIOS = { ...this.SCENARIOS, __custom: dyn };
+      this.sid = '__custom';
+      this.n = currentVisible.length;
+      this.halted = false;
+      this.outcome = null;
+      this.agentJoined = false;
+      this.liveAnswer = null;
+      clearTimeout(this.timer);
+      this.startPlayback();
+
+      this.api.chat(msg).subscribe(response => {
+        if (response?.answer) {
+          this.liveAnswer = response.answer;
+        }
+      });
+      return;
+    }
 
     if (result.type === 1) {
       if (this.rephraseCount < 2) {
