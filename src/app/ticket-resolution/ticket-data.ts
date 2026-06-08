@@ -81,6 +81,14 @@ export interface Scenario {
 }
 
 export const SCENARIOS: Record<string, Scenario> = {
+  custom: {
+    id: 'custom', label: 'Custom Issue', type: 3, confidence: 0,
+    productArea: 'General', priority: 'P3',
+    summary: 'Custom user-submitted issue',
+    steps: [
+      { from: 'ai', text: "Hello! Describe your issue in plain language and our AI will classify it and suggest a resolution." }
+    ]
+  },
   type3: {
     id: 'type3', label: 'Booking widget missing', type: 3, confidence: 94,
     productArea: 'Booking engine', priority: 'P3',
@@ -143,7 +151,7 @@ export const SCENARIOS: Record<string, Scenario> = {
   },
 };
 
-export const SCENARIO_ORDER = ['type3', 'type2', 'type1'];
+export const SCENARIO_ORDER = ['custom', 'type3', 'type2', 'type1'];
 
 export interface QueueTicket {
   id: string;

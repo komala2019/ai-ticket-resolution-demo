@@ -23,7 +23,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
 
   constructor(private api: TicketResolutionApiService, public demo: DemoStateService) {}
 
-  sid = 'type3';
+  sid = 'custom';
   n = 0;
   halted = false;
   outcome: OutcomeKind = null;

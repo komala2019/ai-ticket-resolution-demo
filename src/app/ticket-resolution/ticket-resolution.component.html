@@ -182,7 +182,7 @@
     </div>
     <div class="tr-tweaks-body">
       <div class="tr-tweaks-section">Confidence thresholds</div>
-      <p style="font-size:11.5px;color:rgba(41,38,27,.55);margin:0 0 8px;line-height:16px;">Drag to re-route the queue live. Bands stay ordered: rewrite &lt; approve &lt; auto.</p>
+      <p class="tr-tweaks-desc">Drag to re-route the queue live. Bands stay ordered: rewrite &lt; approve &lt; auto.</p>
       <div class="tr-tweak-row">
         <div class="tr-tweak-label"><span>Auto-resolve ≥</span><span class="tr-tweak-val">{{ thresholds.auto }}%</span></div>
         <input type="range" class="tr-slider" min="75" max="99" step="1" [value]="thresholds.auto" (input)="onThresholdChange('auto', +$any($event.target).value)" />
