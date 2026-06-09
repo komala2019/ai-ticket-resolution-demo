@@ -48,11 +48,13 @@
 }
 
 .tr-shell {
-  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: var(--gray-50);
   font-family: var(--font-sans, 'Inter', sans-serif);
   color: var(--gray-900);
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 /* ── Top bar ─────────────────────────────── */
@@ -217,16 +219,20 @@
 /* ── Content area ────────────────────────── */
 .tr-content {
   padding: 28px 32px 80px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   &.customer-view {
     padding: 24px 32px;
-    height: calc(100vh - 72px);
+    height: 100%;
+    overflow: hidden;
     box-sizing: border-box;
   }
   /* Docs pages are taller than the viewport; the global app locks
      body overflow, so give the docs their own scroll region under
      the sticky topbar. */
   &.docs-view {
-    height: calc(100vh - 72px);
+    height: 100%;
     overflow-y: auto;
     box-sizing: border-box;
   }
@@ -261,161 +267,6 @@
 @keyframes tr-toast-in {
   from { opacity: 0; transform: translate(-50%, 12px); }
   to   { opacity: 1; transform: translate(-50%, 0); }
-}
-
-/* ── Tweaks panel ────────────────────────── */
-.tr-tweaks-panel {
-  --tweaks-bg: rgba(250, 249, 247, 0.85);
-  --tweaks-border: rgba(255, 255, 255, 0.6);
-  --tweaks-inset-shadow: rgba(255, 255, 255, 0.5);
-  --tweaks-box-shadow: rgba(0, 0, 0, 0.18);
-  --tweaks-header-border: rgba(0, 0, 0, 0.08);
-  --tweaks-text-primary: rgba(41, 38, 27, 0.9);
-  --tweaks-text-secondary: rgba(41, 38, 27, 0.65);
-  --tweaks-text-muted: rgba(41, 38, 27, 0.45);
-  --tweaks-text-label: rgba(41, 38, 27, 0.8);
-  --tweaks-slider-bg: rgba(0, 0, 0, 0.12);
-  --tweaks-slider-thumb-bg: #fff;
-  --tweaks-slider-thumb-border: rgba(0, 0, 0, 0.12);
-  --tweaks-slider-thumb-shadow: rgba(0, 0, 0, 0.2);
-  --tweaks-item-bg: rgba(255, 255, 255, 0.06);
-  --tweaks-item-border: rgba(255, 255, 255, 0.1);
-  --tweaks-reset-bg: rgba(0, 0, 0, 0.78);
-  --tweaks-reset-bg-hover: rgba(0, 0, 0, 0.9);
-  --tweaks-reset-color: #fff;
-
-  @media (prefers-color-scheme: dark) {
-    --tweaks-bg: rgba(26, 29, 46, 0.85);
-    --tweaks-border: rgba(255, 255, 255, 0.08);
-    --tweaks-inset-shadow: rgba(255, 255, 255, 0.04);
-    --tweaks-box-shadow: rgba(0, 0, 0, 0.4);
-    --tweaks-header-border: rgba(255, 255, 255, 0.08);
-    --tweaks-text-primary: #F9FAFB;
-    --tweaks-text-secondary: #98A2B3;
-    --tweaks-text-muted: #667085;
-    --tweaks-text-label: #D0D5DD;
-    --tweaks-slider-bg: rgba(255, 255, 255, 0.12);
-    --tweaks-slider-thumb-bg: #fff;
-    --tweaks-slider-thumb-border: rgba(255, 255, 255, 0.2);
-    --tweaks-slider-thumb-shadow: rgba(0, 0, 0, 0.3);
-    --tweaks-item-bg: rgba(255, 255, 255, 0.03);
-    --tweaks-item-border: rgba(255, 255, 255, 0.08);
-    --tweaks-reset-bg: #F9FAFB;
-    --tweaks-reset-bg-hover: #EAECF0;
-    --tweaks-reset-color: #0C111D;
-  }
-
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 50;
-  width: 272px;
-  background: var(--tweaks-bg);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  border: .5px solid var(--tweaks-border);
-  border-radius: 14px;
-  box-shadow: 0 1px 0 var(--tweaks-inset-shadow) inset, 0 12px 40px var(--tweaks-box-shadow);
-  font-size: 11.5px;
-  font-family: inherit;
-  overflow: hidden;
-}
-.tr-tweaks-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  border-bottom: .5px solid var(--tweaks-header-border);
-  color: var(--tweaks-text-primary);
-}
-.tr-tweaks-body {
-  padding: 12px 14px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.tr-tweaks-section {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  color: var(--tweaks-text-muted);
-  padding-top: 4px;
-}
-.tr-tweaks-desc {
-  font-size: 11.5px;
-  color: var(--tweaks-text-muted);
-  margin: 0 0 8px;
-  line-height: 16px;
-}
-.tr-tweak-row {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.tr-tweak-label {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11.5px;
-  color: var(--tweaks-text-label);
-  font-weight: 500;
-}
-.tr-tweak-val { color: var(--tweaks-text-muted); }
-.tr-slider {
-  appearance: none;
-  width: 100%;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--tweaks-slider-bg);
-  outline: none;
-  &::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 14px; height: 14px;
-    border-radius: 50%;
-    background: var(--tweaks-slider-thumb-bg);
-    border: .5px solid var(--tweaks-slider-thumb-border);
-    box-shadow: 0 1px 3px var(--tweaks-slider-thumb-shadow);
-    cursor: pointer;
-  }
-  &::-moz-range-thumb {
-    width: 14px; height: 14px;
-    border-radius: 50%;
-    background: var(--tweaks-slider-thumb-bg);
-    border: .5px solid var(--tweaks-slider-thumb-border);
-    box-shadow: 0 1px 3px var(--tweaks-slider-thumb-shadow);
-    cursor: pointer;
-  }
-}
-.tr-routing-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
-}
-.tr-routing-item {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 9px;
-  border-radius: 8px;
-  background: var(--tweaks-item-bg);
-  border: 1px solid var(--tweaks-item-border);
-}
-.tr-routing-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.tr-routing-label { flex: 1; font-size: 11px; color: var(--tweaks-text-secondary); }
-.tr-routing-count { font-size: 14px; font-weight: 700; color: var(--tweaks-text-primary); font-variant-numeric: tabular-nums; }
-.tr-tweaks-reset {
-  appearance: none;
-  border: 0;
-  border-radius: 7px;
-  background: var(--tweaks-reset-bg);
-  color: var(--tweaks-reset-color);
-  font: inherit;
-  font-weight: 500;
-  font-size: 11.5px;
-  padding: 5px 12px;
-  cursor: pointer;
-  margin-top: 4px;
-  &:hover { background: var(--tweaks-reset-bg-hover); }
 }
 
 /* ── Notification Bell & Dropdown ────────── */
@@ -640,11 +491,12 @@
     padding: 16px 16px 100px;
     &.customer-view {
       padding: 16px;
-      height: auto;
+      height: 100%;
+      overflow: hidden;
     }
     &.docs-view {
-      height: auto;
-      overflow-y: visible;
+      height: 100%;
+      overflow-y: auto;
     }
   }
   .tr-tweaks-panel {

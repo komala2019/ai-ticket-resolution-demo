@@ -23,6 +23,21 @@
         <span class="replay-text">Replay</span>
       </button>
     </div>
+    
+    <!-- Mobile Status Banner -->
+    <div class="mobile-status-banner" *ngIf="classified">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-weight:600;color:var(--gray-600);">Ticket:</span>
+        <span class="mono" style="font-weight:700;color:var(--gray-900);">{{ ticketId() }}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span class="status-dot" [style.background]="statusColor()" [class.pulse]="!outcome && classified"></span>
+        <span style="font-weight:700;" [style.color]="statusColor()">{{ statusLabel() }}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <app-tr-type-chip [type]="scenario.type" [size]="'sm'"></app-tr-type-chip>
+      </div>
+    </div>
 
     <!-- Messages -->
     <div class="chat-messages" #scrollEl>
@@ -46,50 +61,7 @@
           </div>
         </div>
 
-        <!-- Classify card -->
-        <div *ngIf="step.kind === 'classify'" class="msg-row ai">
-          <span class="ai-avatar sz30">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/>
-            </svg>
-          </span>
-          <div class="ai-card" style="flex:1;min-width:0;" title="AI classification summary for this ticket.">
-            <div class="ai-card-accent" [style.background]="TYPE_META[scenario.type].hex"></div>
-            <div style="padding:16px;">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gray-500)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
-                </svg>
-                <span style="font-size:12px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.05em;">Issue classified</span>
-              </div>
-              <div class="classify-layout-content">
-                <app-tr-confidence-gauge
-                  [value]="scenario.confidence"
-                  [thresholds]="thresholds"
-                  [size]="132"
-                  [stroke]="12">
-                </app-tr-confidence-gauge>
-                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;">
-                  <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                    <app-tr-type-chip [type]="scenario.type" [withName]="true"></app-tr-type-chip>
-                    <span class="area-chip">{{ scenario.productArea }}</span>
-                  </div>
-                  <div style="font-size:13.5px;color:var(--gray-600);line-height:19px;">{{ TYPE_META[scenario.type].desc }}</div>
-                  <app-tr-threshold-bar [value]="scenario.confidence" [thresholds]="thresholds" [height]="30" [showLabels]="false"></app-tr-threshold-bar>
-                </div>
-              </div>
-              
-              <!-- Evidence explaining why the AI chose this resolution -->
-              <div *ngIf="scenario.evidence && scenario.evidence.length > 0" style="margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--gray-200);">
-                <div style="font-size:11.5px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Why did we match this?</div>
-                <div *ngFor="let ev of scenario.evidence" style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--gray-600);margin-bottom:4px;gap:8px;">
-                  <a href="javascript:void(0)" (click)="goToReference(ev.t)" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--primary-600);text-decoration:underline;cursor:pointer;font-weight:500;" [title]="ev.t">{{ ev.t }}</a>
-                  <span style="font-weight:600;color:var(--success-600);flex-shrink:0;">{{ ev.m }}% confidence</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        
 
         <!-- Resolution card -->
         <div *ngIf="step.kind === 'resolution'" class="msg-row ai">
@@ -112,6 +84,21 @@
                   <span style="font-size:14px;color:var(--gray-700);line-height:22px;">{{ s }}</span>
                 </li>
               </ol>
+
+              <!-- Inline Thumbs Feedback for Resolution -->
+              <div *ngIf="pendingConfirm && i === visible.length - 1" style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--gray-200); display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                <span style="font-size:13.5px; color:var(--gray-800); font-weight:600;">Did this resolve your issue?</span>
+                <div style="display:flex; gap:12px; align-items:center;">
+                  <button class="confirm-btn feedback-thumbs-btn thumbs-up" (click)="onYes()" title="Fixed">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                    Fixed
+                  </button>
+                  <button class="confirm-btn feedback-thumbs-btn thumbs-down" (click)="onNo()" title="Still broken">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+                    Still broken
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -147,6 +134,23 @@
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                   {{ scenario.eta }}
                 </span>
+              </div>
+
+              <!-- Inline Thumbs Feedback for Known Bug -->
+              <div *ngIf="pendingConfirm && i === visible.length - 1" style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--gray-200); display:flex; flex-direction:column; gap:8px;">
+                <span style="font-size:13.5px; color:var(--gray-800); font-weight:600; line-height: 20px;">
+                  That workaround should get you unblocked. Want me to notify you when the permanent fix ships?
+                </span>
+                <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                  <button class="confirm-btn feedback-thumbs-btn thumbs-up" (click)="onYes()" title="Yes, notify me">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                    Yes, notify me
+                  </button>
+                  <button class="confirm-btn feedback-thumbs-btn thumbs-down" (click)="onNo()" title="Workaround didn't help">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+                    Workaround didn't help
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -290,25 +294,7 @@
         </button>
       </div>
 
-      <!-- Confirm block -->
-      <div *ngIf="pendingConfirm" class="msg-row ai">
-        <span class="ai-avatar sz30"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg></span>
-        <div class="ai-card" style="flex:1;min-width:0;" title="Customer confirmation card for resolving or rejecting the fix.">
-          <div style="padding:16px;">
-            <div style="font-size:14.5px;color:var(--gray-800);line-height:21px;margin-bottom:12px;font-weight:600;">{{ last?.text }}</div>
-            <div style="display:flex;gap:12px;flex-wrap:wrap;">
-              <button class="confirm-btn feedback-thumbs-btn thumbs-up" (click)="onYes()" title="Thumbs Up - Resolved">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-                Thumbs Up (Fixed)
-              </button>
-              <button class="confirm-btn feedback-thumbs-btn thumbs-down" (click)="onNo()" title="Thumbs Down - Still Broken">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
-                Thumbs Down (Still Broken)
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      
 
       <!-- Outcome card -->
       <div *ngIf="outcome" class="msg-row ai">

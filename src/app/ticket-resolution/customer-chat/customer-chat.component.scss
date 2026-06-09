@@ -197,6 +197,14 @@
   &.no:hover  { background: var(--gray-50); }
 
   &.feedback-thumbs-btn {
+    flex: 0 0 auto;
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 6px;
+    svg {
+      width: 14px;
+      height: 14px;
+    }
     &.thumbs-up {
       border: 1px solid var(--success-600);
       background: var(--success-50, rgba(22, 163, 74, 0.08));
@@ -424,7 +432,11 @@
 .status-dot {
   width: 7px; height: 7px;
   border-radius: 50%;
-  &.pulse { box-shadow: 0 0 0 3px currentColor22; }
+  display: inline-block;
+  &.pulse { box-shadow: 0 0 0 3px rgba(41, 112, 255, 0.25); }
+}
+.mobile-status-banner {
+  display: none;
 }
 .rail-note {
   background: var(--primary-50);
@@ -442,18 +454,34 @@
 }
 
 @media (max-width: 768px) {
+  .mobile-status-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--gray-200);
+    font-size: 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+    .mono {
+      font-family: 'Roboto Mono', monospace;
+    }
+  }
   .chat-layout {
     flex-direction: column;
     align-items: stretch;
-    height: auto;
+    height: 100%;
+    overflow: hidden;
   }
   .chat-window {
-    height: calc(100vh - 140px);
-    min-height: 380px;
-    max-height: 600px;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    flex: 1;
   }
   .status-rail {
-    width: 100%;
+    display: none;
   }
   .bubble {
     max-width: 90%;

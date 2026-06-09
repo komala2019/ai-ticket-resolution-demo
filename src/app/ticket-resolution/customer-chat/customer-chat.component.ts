@@ -240,7 +240,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     }
 
     // Check if the intent is a potential bug or just plain language
-    const isBug = isBugIntent(msg, this.demo.kb);
+    const isBug = isBugIntent(msg, this.demo.kb) || (this.rephraseCount > 0 && this.sid === '__custom');
 
     // Refresh rephrase/clarification state if the user changed topic or intent.
     const prevCustom = this.SCENARIOS['__custom'];
@@ -385,6 +385,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         if (isOffline && isChitChat(msg)) {
           aiStepText = "I'm a support assistant, so I'm best at diagnosing technical issues with the platform. For anything outside that — or if you'd just prefer to speak with a person — hit the **Human** button and I'll connect you with the team right away.";
         } else {
+          this.rephraseCount++;
           // Vague but could be support-related — ask for issue details.
           const nudges = [
             "I want to make sure I find the right fix. Could you describe the specific issue — what you see on screen, which feature it affects, and when it started?",
@@ -467,7 +468,6 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
           finalType = 1;
         }
 
-        const classifyStep: ScenarioStep = { from: 'ai', kind: 'classify' };
         let aiStep: ScenarioStep;
 
         // ── Pre-escalation clarification ─────────────────────────────────────
@@ -595,10 +595,9 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         }
 
         if (thinkIdx !== -1) {
-          stepsList[thinkIdx] = classifyStep;
-          stepsList.splice(thinkIdx + 1, 0, aiStep);
+          stepsList[thinkIdx] = aiStep;
         } else {
-          stepsList.push(classifyStep, aiStep);
+          stepsList.push(aiStep);
         }
 
         this.SCENARIOS['__custom'].type = finalType;
@@ -614,23 +613,33 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
           this.formSubject = msg.length > 80 ? msg.slice(0, 77) + '…' : msg;
           this.formArea = area;
           this.formPriority = finalPriority;
-          this.formDesc = msg;
+          
+          let chatHistory = '';
+          const stepsSoFar = stepsList.filter(s => s && s.kind !== 'thinking' && s.kind !== 'classify' && s.kind !== 'ticket-form');
+          if (stepsSoFar.length > 0) {
+            chatHistory = stepsSoFar.map(s => {
+              const sender = s.from === 'user' ? 'Customer' : 'AI';
+              let content = s.text || '';
+              if (s.kind === 'resolution' || s.kind === 'known') {
+                content = `[Matched KB Article: ${s.headline || ''}] ${s.intro || ''}`;
+                const steps = s.resolutionSteps || s.workaround || [];
+                if (steps.length > 0) {
+                  content += ' Steps: ' + steps.map((step, idx) => `${idx + 1}. ${step}`).join(' ');
+                }
+              } else if (s.kind === 'novel') {
+                content = `[Escalation Details: ${s.headline || ''}] ${s.intro || ''}`;
+              }
+              return `${sender}: ${content}`;
+            }).join('\n');
+          }
+          this.formDesc = msg + (chatHistory ? `\n\n=== Chat Transcript ===\n${chatHistory}` : '');
+          
           this.formAttachment = attachment || null;
           this.formSubmitted = false;
           stepsList.push({ from: 'ai', kind: 'ticket-form' });
           this.n = stepsList.length;
           this.halted = true;
-        } else if (finalType === 2) {
-          stepsList.push({
-            from: 'ai', kind: 'confirm',
-            text: 'That workaround should get you unblocked. Want me to notify you when the permanent fix ships?',
-            positive: 'Yes, notify me',
-            negative: "Workaround didn't help",
-          });
-          this.n = stepsList.length;
-          this.halted = true;
         } else {
-          stepsList.push({ from: 'ai', kind: 'confirm', text: 'Did this resolve your issue?' });
           this.n = stepsList.length;
           this.halted = true;
         }
@@ -670,7 +679,9 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         .join('\n\n');
     }
 
-    const fullDescription = this.formDesc + (chatHistory ? `\n\n=== Chat Transcript ===\n${chatHistory}` : '');
+    const fullDescription = this.formDesc.includes('=== Chat Transcript ===')
+      ? this.formDesc
+      : this.formDesc + (chatHistory ? `\n\n=== Chat Transcript ===\n${chatHistory}` : '');
 
     const queueTicket: QueueTicket = {
       id: ticketId,
@@ -866,10 +877,14 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
 
   get steps(): ScenarioStep[] { return this.scenario.steps; }
   get visible(): ScenarioStep[] { return this.steps.slice(0, this.n); }
-  get classified(): boolean { return this.visible.some(s => s.kind === 'classify'); }
+  get classified(): boolean {
+    return this.visible.some(s => s.kind === 'classify' || s.kind === 'resolution' || s.kind === 'known' || s.kind === 'novel' || s.kind === 'ticket-form');
+  }
   get last(): ScenarioStep | null { return this.steps[this.n - 1] || null; }
   get pendingClarify(): boolean { return this.halted && !!this.last && this.last.kind === 'clarify'; }
-  get pendingConfirm(): boolean { return this.halted && !this.outcome && !!this.last && this.last.kind === 'confirm'; }
+  get pendingConfirm(): boolean {
+    return this.halted && !this.outcome && !!this.last && (this.last.kind === 'resolution' || this.last.kind === 'known');
+  }
   get pendingForm(): boolean { return this.halted && !this.formSubmitted && !!this.last && this.last.kind === 'ticket-form'; }
   get done(): boolean { return !this.steps[this.n] || !!this.outcome; }
 
@@ -989,7 +1004,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         }
       }
 
-      if (step.kind === 'clarify' || step.kind === 'confirm') { this.halted = true; }
+      if (step.kind === 'clarify' || step.kind === 'confirm' || step.kind === 'resolution' || step.kind === 'known') { this.halted = true; }
       setTimeout(() => this.scrollToBottom(), 50);
       if (!this.halted) this.tick();
     }, delay);
@@ -1019,14 +1034,54 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     setTimeout(() => this.scrollToBottom(), 50);
   }
   onNo() {
-    this.outcome = 'failed';
-    this.halted = false;
-    this.rephraseCount = 0;
-    this.lastConfidence = 0;
     // Feedback loop: "still broken" reopens, flags the matched KB entry, and
     // dents AI accuracy in the dashboard.
     this.demo.recordReopened(this.scenario.kbId);
     this.demo.notify('Ticket reopened', 'Marked as still broken — re-routed to a specialist; KB entry flagged.', 'red');
+
+    // Exclude the KB ID from future RAG matching in this session
+    if (this.scenario.kbId) {
+      this.excludedKbIds.add(this.scenario.kbId);
+    }
+
+    // Assemble clean visible steps history, filtering out confirm/classify steps
+    const currentSteps = this.steps.slice(0, this.n);
+    const cleanSteps = currentSteps.filter(s => s && s.kind !== 'confirm' && s.kind !== 'classify');
+
+    // Add user message "Still broken"
+    const userStep: ScenarioStep = { from: 'user', text: 'Still broken' };
+
+    // Add continuation AI message
+    const isKnown = this.scenario.type === 2 || (this.last && this.last.kind === 'known');
+    const aiText = isKnown
+      ? "I'm sorry that workaround didn't help. Let's find another solution. What else is happening, or is it one of these?"
+      : "I'm sorry that didn't resolve the issue. Let's keep troubleshooting. What's still broken, or is it one of these?";
+    const aiStep: ScenarioStep = { from: 'ai', text: aiText };
+
+    const newSteps = [...cleanSteps, userStep, aiStep];
+
+    // Convert scenario to custom
+    const customScenario: Scenario = {
+      id: '__custom',
+      label: 'Your issue',
+      type: this.scenario.type,
+      confidence: this.scenario.confidence,
+      productArea: this.scenario.productArea,
+      priority: this.scenario.priority,
+      summary: this.scenario.summary,
+      steps: newSteps,
+      kbId: this.scenario.kbId,
+      ticketId: this.scenario.ticketId
+    };
+
+    this.SCENARIOS = { ...this.SCENARIOS, __custom: customScenario };
+    this.sid = '__custom';
+    this.n = newSteps.length;
+    this.halted = false;
+    this.outcome = null;
+    this.rephraseCount = 0;
+    this.lastConfidence = 0;
+
     setTimeout(() => this.scrollToBottom(), 50);
   }
 

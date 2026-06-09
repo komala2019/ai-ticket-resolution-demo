@@ -83,7 +83,7 @@ async function generateGeminiAnswer(message, context, apiKey) {
     };
   } catch (error) {
     console.error("Gemini chat generation failed:", error);
-    return fallbackAnswer(message, context);
+    throw error;
   }
 }
 
@@ -129,19 +129,27 @@ async function generateOpenaiAnswer(message, context, apiKey) {
     };
   } catch (error) {
     console.error("OpenAI chat generation failed:", error);
-    return fallbackAnswer(message, context);
+    throw error;
   }
 }
 
 export async function generateAnswer(message, context) {
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
-    return await generateGeminiAnswer(message, context, geminiKey);
+    try {
+      return await generateGeminiAnswer(message, context, geminiKey);
+    } catch (error) {
+      console.warn("[LLM Service] Gemini generateAnswer failed. Trying OpenAI backup if key available...");
+    }
   }
 
   const openaiKey = process.env.OPENAI_API_KEY;
   if (openaiKey) {
-    return await generateOpenaiAnswer(message, context, openaiKey);
+    try {
+      return await generateOpenaiAnswer(message, context, openaiKey);
+    } catch (error) {
+      console.error("[LLM Service] OpenAI generateAnswer failed:", error);
+    }
   }
 
   return fallbackAnswer(message, context);

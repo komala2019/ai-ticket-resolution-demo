@@ -174,36 +174,6 @@
     </svg>
     {{ toast.msg }}
   </div>
-
-  <!-- Tweaks panel -->
-  <div class="tr-tweaks-panel" *ngIf="!isDocs">
-    <div class="tr-tweaks-header">
-      <span style="font-size:12px;font-weight:600;">Tweaks</span>
-    </div>
-    <div class="tr-tweaks-body">
-      <div class="tr-tweaks-section">Confidence thresholds</div>
-      <p class="tr-tweaks-desc">Drag to re-route the queue live. Bands stay ordered: rewrite &lt; approve &lt; auto.</p>
-      <div class="tr-tweak-row">
-        <div class="tr-tweak-label"><span>Auto-resolve ≥</span><span class="tr-tweak-val">{{ thresholds.auto }}%</span></div>
-        <input type="range" class="tr-slider" min="75" max="99" step="1" [value]="thresholds.auto" (input)="onThresholdChange('auto', +$any($event.target).value)" />
-      </div>
-      <div class="tr-tweak-row">
-        <div class="tr-tweak-label"><span>CS approval ≥</span><span class="tr-tweak-val">{{ thresholds.approve }}%</span></div>
-        <input type="range" class="tr-slider" min="40" max="94" step="1" [value]="thresholds.approve" (input)="onThresholdChange('approve', +$any($event.target).value)" />
-      </div>
-      <div class="tr-tweak-row">
-        <div class="tr-tweak-label"><span>CS rewrite ≥</span><span class="tr-tweak-val">{{ thresholds.rewrite }}%</span></div>
-        <input type="range" class="tr-slider" min="20" max="89" step="1" [value]="thresholds.rewrite" (input)="onThresholdChange('rewrite', +$any($event.target).value)" />
-      </div>
-      <div class="tr-tweaks-section">Live queue routing</div>
-      <div class="tr-routing-grid">
-        <div class="tr-routing-item" *ngFor="let r of [['auto','Auto-resolve'],['approve','CS approval'],['rewrite','CS rewrite'],['eng','Eng queue']]">
-          <span class="tr-routing-dot" [style.background]="ROUTE_META[r[0]].hex"></span>
-          <span class="tr-routing-label">{{ r[1] }}</span>
-          <span class="tr-routing-count">{{ queueCounts[r[0]] }}</span>
-        </div>
-      </div>
-      <button class="tr-tweaks-reset" (click)="resetThresholds()">Reset to PRD defaults</button>
-    </div>
-  </div>
 </div>
+
+
