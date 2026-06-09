@@ -187,7 +187,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     // Check if the intent is a potential bug or just plain language
     const isBug = isBugIntent(msg, this.demo.kb);
 
-    // Refresh rephrase count if user changed context or intent (but preserve conversation steps)
+    // Refresh rephrase/clarification state if the user changed topic or intent.
     const prevCustom = this.SCENARIOS['__custom'];
     if (prevCustom && this.sid === '__custom') {
       const prevIsBug = isBugIntent(prevCustom.summary, this.demo.kb);
@@ -198,7 +198,10 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       const intentChanged = isBug !== prevIsBug || (isBug && newArea !== 'General' && newArea !== prevArea);
 
       if (intentChanged) {
-        this.rephraseCount = 0;
+        // Don't reset to 0 when we already asked once — user switching chips after seeing
+        // "I couldn't find a match" should get a different (round-2) response, not the
+        // same one repeated. Preserve count at 1 so the next ask is the deeper question.
+        this.rephraseCount = Math.min(1, this.rephraseCount);
         this.lastConfidence = 0;
         this.excludedKbIds = new Set();
       }
@@ -358,13 +361,16 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         // to 2 rounds to describe their actual issue more specifically.
         const isGenuinelyNovel = localResult?.looksNovel
           || NOVEL_SIGNALS.some(s => cumulativeMsg.includes(s.phrase));
-        const preEscalateLimit = 2;
+        // One round of "tell me more" is enough when the area is already detected — the
+        // user has given us an area signal (chip or keyword) so a second generic question
+        // adds nothing. Two rounds only when the area is still completely unknown.
+        const preEscalateLimit = area !== 'General' ? 1 : 2;
 
         if (finalType === 1 && !isGenuinelyNovel && this.rephraseCount < preEscalateLimit) {
           this.rephraseCount++;
           this.lastConfidence = finalScore;
           const deepenText = this.rephraseCount === 1
-            ? `I couldn't find a confident match in our knowledge base yet. To route this correctly, could you describe:\n• What exactly do you see — error message, blank screen, wrong data?\n• Which feature or page is this on?\n• When did it start happening?`
+            ? `I can see this is in the **${area}** area, but I need a bit more detail to find the right fix. Could you describe:\n• What exactly do you see — error message, blank screen, wrong value?\n• When did it start, and did anything change recently?`
             : `Still narrowing this down. A few more details would help:\n• Is there a specific error code or message?\n• Does it happen for all users or just you?\n• Did anything change recently — new setting, permission, or update?`;
           const deepenStep: ScenarioStep = { from: 'ai', text: deepenText };
           if (thinkIdx !== -1) stepsList[thinkIdx] = deepenStep;
