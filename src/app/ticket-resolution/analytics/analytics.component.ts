@@ -84,16 +84,27 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
     return this.demo.getActivityLog();
   }
 
+  activeTooltip: string | null = null;
+
   tooltipText(metric: Metric): string {
-    const formulas: Record<string, string> = {
-      'Deflection rate': 'Live formula: resolved ÷ (resolved + escalated) × 100. Current baseline uses 12 resolved and 1 escalated, so 12 ÷ 13 ≈ 92%.',
-      'Avg. time to resolution': 'Live formula: 2.4 - 0.06 × resolved + 0.03 × reopened. This is the current estimate of hours to resolve from live session activity.',
-      'AI resolution accuracy': 'Live formula: resolved ÷ (resolved + reopened) × 100. Higher reopen counts lower the score.',
-      'Cost per ticket': 'Live formula: 11.6 - 0.12 × resolved + 0.05 × escalated + 0.08 × reopened. Lower is better.',
-      'CS tickets / rep / week': 'Live formula: 36 - 0.45 × resolved + 0.15 × escalated + 0.10 × reopened. This estimates team load per rep.',
-      'Auto-closed (no human)': 'Live formula: round(0.65 × resolved + 0.35 × escalated). This counts the tickets the AI can close without human touch.',
+    const map: Record<string, string> = {
+      'Deflection rate':         'resolved ÷ (resolved + escalated). Measures the % of tickets the AI handled without any human involvement. Session baseline: 12 resolved · 1 escalated.',
+      'Avg. time to resolution': '2.4 − 0.06 × resolved + 0.03 × reopened. Estimated hours from first customer message to ticket close, derived from live session volume.',
+      'AI resolution accuracy':  'resolved ÷ (resolved + reopened). Every "Still broken" click flags a bad match and lowers this score.',
+      'Cost per ticket':         '11.6 − 0.12 × resolved + 0.05 × escalated + 0.08 × reopened. Reflects fully-loaded support cost per ticket; lower deflection and more reopens raise it.',
+      'CS tickets / rep / week': '36 − 0.45 × resolved + 0.15 × escalated + 0.10 × reopened. Estimates weekly ticket load per support rep.',
+      'Auto-closed (no human)':  'round(0.65 × resolved + 0.35 × escalated). Count of tickets the AI fully closed without a human ever touching them.',
     };
-    return 'Live KPI card for ' + metric.k + '. ' + metric.sub + '. ' + (formulas[metric.k] || 'This KPI is derived from the current session counters.');
+    return map[metric.k] ?? 'Derived from live session counters.';
+  }
+
+  sectionTooltip(key: string): string {
+    const map: Record<string, string> = {
+      trend:    'Deflection trend — day-by-day snapshot of the AI deflection rate over the selected date range. The rightmost point reflects the current live session rate.',
+      routing:  'Live queue routing — open tickets split by AI confidence tier. Move the threshold sliders in the shell to see the counts update in real time.',
+      activity: 'Recent session activity — every resolve, escalate, and reopen from this session. These actions drive the live KPI cards above.',
+    };
+    return map[key] ?? '';
   }
 
   get totalMix(): number {

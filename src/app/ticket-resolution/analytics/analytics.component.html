@@ -26,22 +26,41 @@
 
   <!-- Metric cards -->
   <div class="metric-grid">
-    <div *ngFor="let m of metrics" class="metric-card" [attr.data-tooltip]="tooltipText(m)">
+    <div *ngFor="let m of metrics" class="metric-card"
+         (mouseenter)="activeTooltip = m.k" (mouseleave)="activeTooltip = null">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div style="font-size:12.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--gray-500);">{{ m.k }}</div>
+        <svg class="info-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
       </div>
       <div style="font-size:32px;font-weight:800;color:var(--gray-900);letter-spacing:-0.03em;line-height:1;">{{ m.now }}</div>
       <div style="font-size:12.5px;color:var(--gray-400);margin-top:6px;">{{ m.sub }}</div>
       <div class="metric-target">Baseline: {{ m.baseline }}</div>
       <div class="metric-target" style="margin-top:2px;">Target: {{ m.target }}</div>
+      <!-- Tooltip -->
+      <div class="tooltip-box" *ngIf="activeTooltip === m.k">
+        <div class="tooltip-label">{{ m.k }}</div>
+        {{ tooltipText(m) }}
+      </div>
     </div>
   </div>
 
   <!-- Deflection trend -->
-  <div class="analytics-card" [attr.data-tooltip]="'Deflection trend chart for the selected date range.'">
+  <div class="analytics-card"
+       (mouseenter)="activeTooltip = 'trend'" (mouseleave)="activeTooltip = null">
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap;">
-      <div style="font-size:14px;font-weight:700;color:var(--gray-900);">Deflection trend</div>
+      <div style="display:flex;align-items:center;gap:7px;">
+        <span style="font-size:14px;font-weight:700;color:var(--gray-900);">Deflection trend</span>
+        <svg class="info-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+      </div>
       <div style="font-size:12.5px;color:var(--gray-400);">Selected-date snapshot adjusted to the current deflection rate</div>
+    </div>
+    <div class="tooltip-box" *ngIf="activeTooltip === 'trend'">
+      <div class="tooltip-label">Deflection trend</div>
+      {{ sectionTooltip('trend') }}
     </div>
     <svg [attr.viewBox]="'0 0 ' + trendW + ' ' + trendH" style="width:100%;height:auto;overflow:visible;">
       <line *ngFor="let pct of [0, .25, .5, .75, 1]"
@@ -65,8 +84,18 @@
 
   <!-- Bottom row: routing + activity -->
   <div class="analytics-bottom-row">
-    <div class="analytics-card" [attr.data-tooltip]="'Live queue routing summary by ticket path.'">
-      <div style="font-size:14px;font-weight:700;color:var(--gray-900);margin-bottom:14px;">Live queue routing</div>
+    <div class="analytics-card"
+         (mouseenter)="activeTooltip = 'routing'" (mouseleave)="activeTooltip = null">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:14px;">
+        <span style="font-size:14px;font-weight:700;color:var(--gray-900);">Live queue routing</span>
+        <svg class="info-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+      </div>
+      <div class="tooltip-box" *ngIf="activeTooltip === 'routing'">
+        <div class="tooltip-label">Live queue routing</div>
+        {{ sectionTooltip('routing') }}
+      </div>
       <div style="display:flex;flex-direction:column;gap:10px;">
         <div *ngFor="let r of routeCounts" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--gray-200);border-radius:10px;background:var(--gray-50);">
           <div style="display:flex;align-items:center;gap:10px;">
@@ -84,8 +113,18 @@
       </div>
     </div>
 
-    <div class="analytics-card" [attr.data-tooltip]="'Recent session activity and live ticket actions.'">
-      <div style="font-size:14px;font-weight:700;color:var(--gray-900);margin-bottom:14px;">Recent session activity</div>
+    <div class="analytics-card"
+         (mouseenter)="activeTooltip = 'activity'" (mouseleave)="activeTooltip = null">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:14px;">
+        <span style="font-size:14px;font-weight:700;color:var(--gray-900);">Recent session activity</span>
+        <svg class="info-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+      </div>
+      <div class="tooltip-box" *ngIf="activeTooltip === 'activity'">
+        <div class="tooltip-label">Recent session activity</div>
+        {{ sectionTooltip('activity') }}
+      </div>
       <div *ngIf="recentActivity.length === 0" style="font-size:13px;color:var(--gray-500);">
         No ticket actions yet. Resolve, escalate, or reopen a ticket to populate this panel.
       </div>
