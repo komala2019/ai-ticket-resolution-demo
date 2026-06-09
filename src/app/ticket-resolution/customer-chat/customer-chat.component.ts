@@ -201,6 +201,18 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       return;
     }
 
+    // ── Post-outcome reset ────────────────────────────────────────────────────
+    // When the user sends a new message after an outcome (resolved / failed /
+    // notified), clear the outcome and start a fresh classification cycle so
+    // the new issue is not tangled with the previous one.
+    if (this.outcome) {
+      this.outcome = null;
+      this.rephraseCount = 0;
+      this.lastConfidence = 0;
+      this.excludedKbIds = new Set();
+      this.activeSubChips = null;
+    }
+
     // ── Negation detection ────────────────────────────────────────────────────
     // If the user explicitly rejects the previous answer ("issue is different",
     // "that's not it", etc.), exclude the last matched KB from the next round
@@ -797,6 +809,10 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   }
   /** Contextual quick-reply chips — shown throughout the custom chat, not just at the start. */
   get dynamicChips(): string[] {
+    // After an outcome (resolved / failed / notified) — clear path to start fresh.
+    if (this.outcome) {
+      return ['Report a different issue', 'Booking engine issue', 'Analytics not loading', 'Account problem'];
+    }
     // After a chip-specific clarification: show the targeted sub-chips the bot asked about.
     if (this.activeSubChips) return [...this.activeSubChips, 'Different issue'];
     // Before any user interaction: generic topic starters
@@ -830,7 +846,9 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   get showStarterChips(): boolean {
     if (this.sid !== 'custom' && this.sid !== '__custom') return false;
     if (this.agentJoined) return false;
-    if (this.outcome) return false;
+    // After an outcome the confirm buttons are gone — show fresh-start chips
+    // so the user has a clear path to report a new issue.
+    if (this.outcome) return true;
     if (this.halted) return false;               // clarify / confirm / ticket-form — AI needs specific input
     if (this.last?.kind === 'thinking') return false;  // AI is mid-response
     return true;
@@ -980,6 +998,9 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
 
   onYes() {
     this.outcome = this.scenario.type === 2 ? 'notify' : 'fixed';
+    this.halted = false;
+    this.rephraseCount = 0;
+    this.lastConfidence = 0;
     // Feedback loop: a confirmed fix counts as a resolution in the dashboard,
     // marks the queue ticket as approved, and increments the KB article's uses.
     const tid = this.customTicketId || this.scenario.ticketId;
@@ -995,6 +1016,9 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   }
   onNo() {
     this.outcome = 'failed';
+    this.halted = false;
+    this.rephraseCount = 0;
+    this.lastConfidence = 0;
     // Feedback loop: "still broken" reopens, flags the matched KB entry, and
     // dents AI accuracy in the dashboard.
     this.demo.recordReopened(this.scenario.kbId);
