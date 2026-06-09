@@ -12,7 +12,7 @@ import { KbEntry, Thresholds, routeFor, DEFAULT_THRESHOLDS, QueueTicket } from '
 import { Scenario, ScenarioStep } from './ticket-data';
 
 const AREA_KEYWORDS: Record<string, string[]> = {
-  'Booking engine': ['booking', 'widget', 'reserve', 'reservation', 'rate plan', 'checkout', 'currency'],
+  'Booking engine': ['booking', 'widget', 'reserve', 'reservation', 'rate plan', 'checkout', 'currency', 'price', 'pricing', 'cost', 'rate', 'charge'],
   'Analytics': ['analytics', 'dashboard', 'chart', 'report', 'graph', 'render', 'blank', 'spinner'],
   'Email campaigns': ['email', 'campaign', 'segment', 'newsletter', 'send', 'unsubscribe'],
   'Integrations': ['integration', 'salesforce', 'sync', 'api', 'webhook', 'crm', 'connector'],

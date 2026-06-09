@@ -57,7 +57,7 @@ function section(title) {
 // These mirror local-classifier.ts and vector.service.js exactly.
 
 const AREA_KEYWORDS = {
-  'Booking engine': ['booking', 'widget', 'reserve', 'reservation', 'rate plan', 'checkout', 'currency'],
+  'Booking engine': ['booking', 'widget', 'reserve', 'reservation', 'rate plan', 'checkout', 'currency', 'price', 'pricing', 'cost', 'rate', 'charge'],
   'Analytics':      ['analytics', 'dashboard', 'chart', 'report', 'graph', 'render', 'blank', 'spinner'],
   'Email campaigns':['email', 'campaign', 'segment', 'newsletter', 'send', 'unsubscribe'],
   'Integrations':   ['integration', 'salesforce', 'sync', 'api', 'webhook', 'crm', 'connector'],
