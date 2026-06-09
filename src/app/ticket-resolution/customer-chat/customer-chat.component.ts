@@ -252,10 +252,10 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
 
       const intentChanged = isBug !== prevIsBug || (isBug && newArea !== 'General' && newArea !== prevArea);
 
-      if (intentChanged) {
-        // Don't reset to 0 when we already asked once — user switching chips after seeing
-        // "I couldn't find a match" should get a different (round-2) response, not the
-        // same one repeated. Preserve count at 1 so the next ask is the deeper question.
+      // Never reset rephraseCount when the user clicked a sub-chip — they are
+      // already in a guided drill-down flow; resetting sends them back into the
+      // pre-escalation branch and causes an infinite clarification loop.
+      if (intentChanged && !chipLabel) {
         this.rephraseCount = Math.min(1, this.rephraseCount);
         this.lastConfidence = 0;
         this.excludedKbIds = new Set();
@@ -840,9 +840,10 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   }
   /** Contextual quick-reply chips — shown throughout the custom chat, not just at the start. */
   get dynamicChips(): string[] {
-    // After an outcome (resolved / failed / notified) — clear path to start fresh.
+    // After an outcome (resolved / failed / notified) — show known issues again
+    // so the user can easily pick another topic without retyping.
     if (this.outcome) {
-      return ['Report a different issue', 'Booking engine issue', 'Analytics not loading', 'Account problem'];
+      return this.demo.kb.map(k => k.title);
     }
     // After a chip-specific clarification: show the targeted sub-chips the bot asked about.
     if (this.activeSubChips) return [...this.activeSubChips, 'Different issue'];
