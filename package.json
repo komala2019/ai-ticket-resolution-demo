@@ -8,7 +8,8 @@
     "debug": "node scripts/debugger/main-debugger.js",
     "eval": "node scripts/eval-rag.mjs",
     "test": "node scripts/test-suite/run.mjs --no-judge",
-    "test:judge": "node scripts/test-suite/run.mjs"
+    "test:judge": "node scripts/test-suite/run.mjs",
+    "test:gemini": "GEMINI_API_KEY=$GEMINI_API_KEY node scripts/test-suite/run.mjs"
   },
   "private": true,
   "dependencies": {

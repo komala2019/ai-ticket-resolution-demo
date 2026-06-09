@@ -2,20 +2,24 @@
  * AI Ticket Classifier — Test Suite with LLM-as-Judge
  *
  * Runs 20 realistic support scenarios through the local classifier,
- * then calls Claude as an independent judge to score each result.
+ * then calls an LLM judge to score each result.
  *
  * Usage:
- *   ANTHROPIC_API_KEY=sk-... node scripts/test-suite/run.mjs
- *   node scripts/test-suite/run.mjs          (skip LLM judge if no key)
- *   node scripts/test-suite/run.mjs --no-judge
+ *   GEMINI_API_KEY=...     node scripts/test-suite/run.mjs   (Gemini judge)
+ *   ANTHROPIC_API_KEY=...  node scripts/test-suite/run.mjs   (Claude judge)
+ *   node scripts/test-suite/run.mjs --no-judge               (skip judge)
+ *
+ * Priority: Gemini > Claude > skip
  */
 
 import { classifyIssue, KB, DEFAULT_THRESHOLDS } from './classifier.mjs';
 import { SCENARIOS } from './scenarios.mjs';
 import process from 'process';
 
+const GEMINI_API_KEY    = process.env.GEMINI_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const SKIP_JUDGE = process.argv.includes('--no-judge') || !ANTHROPIC_API_KEY;
+const SKIP_JUDGE = process.argv.includes('--no-judge') || (!GEMINI_API_KEY && !ANTHROPIC_API_KEY);
+const JUDGE_PROVIDER = GEMINI_API_KEY ? 'Gemini' : ANTHROPIC_API_KEY ? 'Claude' : 'none';
 const THRESHOLDS = DEFAULT_THRESHOLDS;
 
 // ── Deterministic pass/fail checks ──────────────────────────────────────────
@@ -53,14 +57,14 @@ function assertResult(scenario, result) {
   return checks;
 }
 
-// ── Claude LLM judge ─────────────────────────────────────────────────────────
+// ── Shared judge prompt ───────────────────────────────────────────────────────
 
-async function judgeWithClaude(scenario, result) {
+function buildJudgePrompt(scenario, result) {
   const kbSnippets = KB.map(k =>
     `[${k.id}] "${k.title}" (kind: ${k.kind}, tags: ${k.tags.join(', ')})`
   ).join('\n');
 
-  const prompt = `You are an independent QA judge evaluating a customer-support AI classifier.
+  return `You are an independent QA judge evaluating a customer-support AI classifier.
 
 ## Knowledge Base (4 articles)
 ${kbSnippets}
@@ -90,7 +94,7 @@ User message: "${scenario.message}"
 4. **Confidence calibration** — Is the confidence score well-calibrated (not inflated or deflated)?
 5. **Overall quality** — Would a CS manager trust this result to route the ticket correctly?
 
-## Required JSON response
+## Required JSON response (no other text)
 {
   "areaAccuracy":    0-10,
   "typeCorrectness": 0-10,
@@ -100,7 +104,46 @@ User message: "${scenario.message}"
   "verdict":         "PASS" | "PARTIAL" | "FAIL",
   "reasoning":       "One concise sentence explaining the most important strength or flaw."
 }`;
+}
 
+const ERROR_RESULT = (msg) => ({
+  areaAccuracy: null, typeCorrectness: null, priorityScore: null,
+  confidenceCalib: null, overallScore: null,
+  verdict: 'ERROR',
+  reasoning: `Judge error: ${msg}`,
+});
+
+// ── Gemini judge ──────────────────────────────────────────────────────────────
+
+async function judgeWithGemini(scenario, result) {
+  const prompt = buildJudgePrompt(scenario, result);
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json', temperature: 0.0 },
+        }),
+      }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON in response');
+    return JSON.parse(jsonMatch[0]);
+  } catch (err) {
+    return ERROR_RESULT(err.message);
+  }
+}
+
+// ── Claude judge ──────────────────────────────────────────────────────────────
+
+async function judgeWithClaude(scenario, result) {
+  const prompt = buildJudgePrompt(scenario, result);
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -115,25 +158,23 @@ User message: "${scenario.message}"
         messages: [{ role: 'user', content: prompt }],
       }),
     });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`HTTP ${res.status}: ${err}`);
-    }
-
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
     const data = await res.json();
     const text = data.content?.[0]?.text || '';
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('No JSON in response');
     return JSON.parse(jsonMatch[0]);
   } catch (err) {
-    return {
-      areaAccuracy: null, typeCorrectness: null, priorityScore: null,
-      confidenceCalib: null, overallScore: null,
-      verdict: 'ERROR',
-      reasoning: `Judge error: ${err.message}`,
-    };
+    return ERROR_RESULT(err.message);
   }
+}
+
+// ── Dispatcher (Gemini → Claude → skip) ──────────────────────────────────────
+
+async function judge(scenario, result) {
+  if (GEMINI_API_KEY)    return judgeWithGemini(scenario, result);
+  if (ANTHROPIC_API_KEY) return judgeWithClaude(scenario, result);
+  return null;
 }
 
 // ── Main runner ──────────────────────────────────────────────────────────────
@@ -155,7 +196,10 @@ function scoreBar(n, max = 10) {
 
 async function main() {
   console.log('\n' + '═'.repeat(80));
-  console.log('  AI Ticket Classifier — Test Suite' + (SKIP_JUDGE ? '  (no LLM judge — set ANTHROPIC_API_KEY)' : '  + Claude Judge'));
+  const judgeLabel = SKIP_JUDGE
+    ? '  (no LLM judge — set GEMINI_API_KEY or ANTHROPIC_API_KEY)'
+    : `  + ${JUDGE_PROVIDER} Judge`;
+  console.log('  AI Ticket Classifier — Test Suite' + judgeLabel);
   console.log('═'.repeat(80));
   console.log(`  Scenarios: ${SCENARIOS.length}  |  Thresholds: auto=${THRESHOLDS.auto} approve=${THRESHOLDS.approve} rewrite=${THRESHOLDS.rewrite}  |  KB articles: ${KB.length}`);
   console.log('─'.repeat(80) + '\n');
@@ -181,7 +225,7 @@ async function main() {
     // 3. LLM judge
     let judgeResult = null;
     if (!SKIP_JUDGE) {
-      judgeResult = await judgeWithClaude(scenario, result);
+      judgeResult = await judge(scenario, result);
       if (judgeResult.overallScore != null) {
         judgeSum  += judgeResult.overallScore;
         judgeTotal++;
@@ -256,7 +300,9 @@ async function main() {
 
   // Overall
   const detPct = Math.round((deterministicPass / deterministicTotal) * 100);
-  const judgeAvgStr = judgeTotal > 0 ? (judgeSum / judgeTotal).toFixed(1) + '/10' : 'n/a (set ANTHROPIC_API_KEY)';
+  const judgeAvgStr = judgeTotal > 0
+    ? `${(judgeSum / judgeTotal).toFixed(1)}/10  (${JUDGE_PROVIDER})`
+    : 'n/a — set GEMINI_API_KEY or ANTHROPIC_API_KEY';
   const passedScenarios = results.filter(r => r.allPass).length;
 
   console.log('\n  Overall:\n');
