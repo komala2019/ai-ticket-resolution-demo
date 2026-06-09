@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, Input, OnChanges, OnDestroy, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { SCENARIOS, TYPE_META, routeFor, Thresholds, ScenarioStep, Scenario, QueueTicket, KbEntry } from '../ticket-data';
 import { TicketResolutionApiService } from '../ticket-resolution-api.service';
@@ -66,7 +66,7 @@ const CHIP_FOLLOW_UPS: Record<string, { question: string; subChips: string[] }> 
   templateUrl: './customer-chat.component.html',
   styleUrls: ['./customer-chat.component.scss'],
 })
-export class CustomerChatComponent implements OnChanges, OnDestroy {
+export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
   @Input() thresholds!: Thresholds;
   @ViewChild('scrollEl') scrollEl!: ElementRef<HTMLElement>;
 
@@ -74,7 +74,11 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   TYPE_META = TYPE_META;
   routeFor = routeFor;
 
+  /** Whether the live LLM backend is reachable. */
+  backendMode: 'online' | 'offline' | 'checking' = 'checking';
+
   constructor(private api: TicketResolutionApiService, public demo: DemoStateService) {}
+
 
   sid = 'custom';
   rephraseCount = 0;
@@ -313,6 +317,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       const stepsList = this.SCENARIOS['__custom'].steps;
       const thinkIdx = stepsList.findIndex(s => s.kind === 'thinking');
       const isOffline = !response.ok || response.model === 'demo-fallback';
+      this.backendMode = isOffline ? 'offline' : 'online';
 
       // ── Build cumulative context ONCE ──────────────────────────────────────
       // Only use user messages from the current "session" — i.e. after the
@@ -975,6 +980,9 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   }
 
   ngOnInit() {
+    this.api.healthCheck().subscribe(ok => {
+      this.backendMode = ok ? 'online' : 'offline';
+    });
     // Load scenarios from the backend; fall back to bundled data if offline.
     this.sub = this.api.getScenarios().subscribe(res => {
       if (res && res.map && Object.keys(res.map).length) {

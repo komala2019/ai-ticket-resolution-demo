@@ -11,8 +11,13 @@
       <div style="flex:1;">
         <div style="font-size:15px;font-weight:700;color:var(--gray-900);">Mile Assistant</div>
         <div style="font-size:12.5px;color:var(--gray-500);display:inline-flex;align-items:center;gap:6px;">
-          <span class="online-dot"></span>
-          Replies in seconds<span class="header-sub-text"> · resolves most issues without a form</span>
+          <span class="online-dot" [class.offline]="backendMode === 'offline'" [class.checking]="backendMode === 'checking'"></span>
+          Replies in seconds
+          <span class="backend-mode-badge" [class.mode-online]="backendMode === 'online'" [class.mode-offline]="backendMode === 'offline'" [class.mode-checking]="backendMode === 'checking'">
+            <span *ngIf="backendMode === 'online'">Live AI</span>
+            <span *ngIf="backendMode === 'offline'">Offline mode</span>
+            <span *ngIf="backendMode === 'checking'">Connecting…</span>
+          </span>
         </div>
       </div>
       <button class="refresh-btn" (click)="refresh()">

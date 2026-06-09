@@ -11,7 +11,7 @@ export interface ToastState { msg: string; tone: string; }
   styleUrls: ['./ticket-resolution.component.scss'],
 })
 export class TicketResolutionComponent implements OnInit, OnDestroy {
-  view: 'customer' | 'console' | 'readme' | 'architecture' = 'customer';
+  view: 'customer' | 'console' | 'readme' | 'architecture' | 'presentation' = 'customer';
   tab: 'queue' | 'kb' | 'analytics' | 'golden' = 'queue';
   selectedTicket: any = null;
   escalatingTicket: any = null;
@@ -79,7 +79,7 @@ export class TicketResolutionComponent implements OnInit, OnDestroy {
     return counts;
   }
 
-  switchView(v: 'customer' | 'console' | 'readme' | 'architecture') {
+  switchView(v: 'customer' | 'console' | 'readme' | 'architecture' | 'presentation') {
     this.view = v;
     this.selectedTicket = null;
   }

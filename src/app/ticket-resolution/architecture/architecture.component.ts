@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { DemoStateService } from '../demo-state.service';
 
 interface Layer {
   name: string;
@@ -17,6 +18,12 @@ interface SeqStep { actor: 'customer' | 'ai' | 'cs' | 'eng'; text: string; }
   styleUrls: ['./architecture.component.scss'],
 })
 export class ArchitectureComponent {
+  constructor(private demo: DemoStateService) {}
+
+  openInteractiveSlides() {
+    this.demo.viewState$.next('presentation');
+  }
+
   activeTab: 'layers' | 'sequence' | 'decisions' | 'roadmap' = 'layers';
 
   layers: Layer[] = [

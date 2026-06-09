@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { TYPE_META, METRICS, Metric } from '../ticket-data';
+import { DemoStateService } from '../demo-state.service';
 
 interface Capability { type: number; route: string; routeHex: string; }
 interface FlowStep { n: number; title: string; text: string; }
@@ -11,6 +12,11 @@ interface CompRow { name: string; selector: string; role: string; }
   styleUrls: ['./readme.component.scss'],
 })
 export class ReadmeComponent {
+  constructor(private demo: DemoStateService) {}
+
+  openInteractiveSlides() {
+    this.demo.viewState$.next('presentation');
+  }
   TYPE_META = TYPE_META;
   metrics: Metric[] = METRICS;
 

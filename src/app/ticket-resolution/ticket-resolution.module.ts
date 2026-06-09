@@ -17,6 +17,7 @@ import { ReadmeComponent } from './readme/readme.component';
 import { ArchitectureComponent } from './architecture/architecture.component';
 import { GoldenComponent } from './golden/golden.component';
 import { MarkdownPipe } from './markdown.pipe';
+import { PresentationComponent } from './presentation/presentation.component';
 
 const routes: Routes = [{ path: '', component: TicketResolutionComponent }];
 
@@ -38,6 +39,7 @@ const routes: Routes = [{ path: '', component: TicketResolutionComponent }];
     ArchitectureComponent,
     GoldenComponent,
     MarkdownPipe,
+    PresentationComponent,
   ],
   imports: [
     CommonModule,

@@ -103,6 +103,11 @@ export class TicketResolutionApiService {
       .pipe(timeout(this.TIMEOUT), catchError(() => of(null)));
   }
 
+  healthCheck(): Observable<boolean> {
+    return this.http.get<{ ok: boolean }>('http://localhost:3001/health')
+      .pipe(timeout(3000), map(r => r?.ok === true), catchError(() => of(false)));
+  }
+
   chat(message: string): Observable<ChatResponse> {
     return this.http.post<ChatResponse>('http://localhost:3001/api/chat', { message }, { headers: this.headers })
       .pipe(

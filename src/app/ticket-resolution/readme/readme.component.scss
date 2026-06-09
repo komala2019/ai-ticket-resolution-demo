@@ -296,6 +296,15 @@
   transition: all 0.15s ease;
   cursor: pointer;
 
+  &.interactive-slides {
+    background: var(--primary-600);
+    color: #fff;
+    border: 1px solid var(--primary-700);
+    &:hover {
+      background: var(--primary-700);
+    }
+  }
+
   &.pptx {
     background: var(--warning-50);
     color: var(--warning-700);

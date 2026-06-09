@@ -1,0 +1,575 @@
+<div class="slides-wrapper" [class.is-fullscreen]="isFullscreen">
+  <!-- Top Slide Progress & Title -->
+  <header class="slides-header">
+    <div class="slides-logo">
+      <span class="logo-mark">
+        <svg width="18" height="18" viewBox="0 0 17 24" fill="currentColor">
+          <path d="M 0 11.776 L 0 23.548 L 1.37 23.548 L 1.38 17.069 L 1.394 10.591 L 4.29 17.204 C 7.097 23.614 7.19 23.813 7.317 23.813 C 7.444 23.813 7.547 23.596 10.389 17.292 L 13.328 10.775 L 13.343 17.161 L 13.353 23.547 L 16.924 23.547 L 16.924 0 L 16.748 0.014 L 16.572 0.028 L 12.532 9.229 C 10.311 14.285 8.485 18.409 8.462 18.388 C 8.439 18.367 6.594 14.222 4.348 9.176 C 0.328 0.121 0.274 0.006 0.137 0.006 L 0 0.006 L 0 11.776 Z"/>
+        </svg>
+      </span>
+      <span class="logo-text">Mile AI</span>
+    </div>
+    <div class="slide-indicator">
+      Slide {{ currentSlide + 1 }} of {{ totalSlides }}
+    </div>
+    <div class="header-actions">
+      <button class="slide-btn action" (click)="toggleFullscreen()" title="Toggle Fullscreen">
+        <svg *ngIf="!isFullscreen" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+        </svg>
+        <svg *ngIf="isFullscreen" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 14h6v6m10-6h-6v6M4 10h6V4m10 6h-6V4"/>
+        </svg>
+        {{ isFullscreen ? 'Exit Fullscreen' : 'Fullscreen' }}
+      </button>
+      <button class="slide-btn close" (click)="exitPresentation()">
+        Exit Slides
+      </button>
+    </div>
+  </header>
+
+  <!-- Slide Canvas -->
+  <main class="slide-canvas">
+    
+    <!-- SLIDE 0: Title Slide -->
+    <div class="slide-content slide-title-layout fade-in" *ngIf="currentSlide === 0">
+      <span class="slide-eyebrow">Interactive Demo Presentation</span>
+      <h1 class="main-title">AI Ticket Auto-Resolution</h1>
+      <p class="main-subtitle">
+        An end-to-end, human-in-the-loop customer support automation demo.
+      </p>
+      
+      <div class="title-details">
+        <div class="detail-tag">
+          <span class="dot green"></span>
+          Autonomous Deflection
+        </div>
+        <div class="detail-tag">
+          <span class="dot blue"></span>
+          CS Copilot Mode
+        </div>
+        <div class="detail-tag">
+          <span class="dot purple"></span>
+          Engineering Escalation Loop
+        </div>
+      </div>
+      
+      <div class="instruction-prompt">
+        Use <kbd>←</kbd> and <kbd>→</kbd> arrow keys or click the buttons below to present.
+      </div>
+    </div>
+
+    <!-- SLIDE 1: Core Concept -->
+    <div class="slide-content slide-standard-layout fade-in" *ngIf="currentSlide === 1">
+      <div class="slide-head">
+        <span class="slide-num">01</span>
+        <h2 class="slide-title">The Core Concept: Closed-Loop Support</h2>
+      </div>
+      <p class="slide-desc text-center">
+        Our architecture shifts customer support from manual forms to an intelligent, automated feedback loop.
+      </p>
+
+      <div class="concept-grid">
+        <div class="concept-item">
+          <div class="concept-num">1</div>
+          <div class="concept-body">
+            <h3>Describe</h3>
+            <p>Customers state their problem in natural language instead of choosing dropdown categories.</p>
+          </div>
+        </div>
+        <div class="concept-arrow">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+        <div class="concept-item">
+          <div class="concept-num">2</div>
+          <div class="concept-body">
+            <h3>Clarify</h3>
+            <p>Guided topic chips narrow down issues instantly, eliminating long email clarification loops.</p>
+          </div>
+        </div>
+        <div class="concept-arrow">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+        <div class="concept-item">
+          <div class="concept-num">3</div>
+          <div class="concept-body">
+            <h3>Classify</h3>
+            <p>The AI models query the Knowledge Base and scores match confidence in real-time.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="concept-grid" style="margin-top: 32px;">
+        <div class="concept-item">
+          <div class="concept-num">4</div>
+          <div class="concept-body">
+            <h3>Route</h3>
+            <p>Flexible threshold scoring routes tickets to Auto-resolve, CS Approval, or Engineering.</p>
+          </div>
+        </div>
+        <div class="concept-arrow">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+        <div class="concept-item">
+          <div class="concept-num">5</div>
+          <div class="concept-body">
+            <h3>Resolve</h3>
+            <p>AI sends the fix directly, provides workarounds, or routes a comprehensive escalation package.</p>
+          </div>
+        </div>
+        <div class="concept-arrow">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+        <div class="concept-item highlight">
+          <div class="concept-num">6</div>
+          <div class="concept-body">
+            <h3>Confirm & Learn</h3>
+            <p>Customer feedback updates deflection metrics, flags articles, and refines future routing.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 2: Resolution Paths -->
+    <div class="slide-content slide-standard-layout fade-in" *ngIf="currentSlide === 2">
+      <div class="slide-head">
+        <span class="slide-num">02</span>
+        <h2 class="slide-title">Four Distinct Resolution Paths</h2>
+      </div>
+      <p class="slide-desc">
+        We handle support cases by categorizing issues and routing them dynamically.
+      </p>
+
+      <div class="deck-cards-grid">
+        <div class="deck-card path-card" style="border-top-color: var(--warning-600);">
+          <div class="path-badge" style="background: var(--warning-50); color: var(--warning-700);">Known Issue Upfront</div>
+          <h3>Zero-Typing Deflection</h3>
+          <p>Active known bugs are suggested before typing. Customers tap directly to a workaround without generating tickets.</p>
+        </div>
+        
+        <div class="deck-card path-card" style="border-top-color: var(--success-600);">
+          <div class="path-badge" style="background: var(--success-50); color: var(--success-700);">Confidence >= 90%</div>
+          <h3>Type 3: Happy Path</h3>
+          <p>Matches high-confidence KB articles. The AI handles the resolution and closes the loop automatically in chat.</p>
+        </div>
+        
+        <div class="deck-card path-card" style="border-top-color: var(--primary-600);">
+          <div class="path-badge" style="background: var(--primary-50); color: var(--primary-700);">Confidence 70% - 89%</div>
+          <h3>Type 2: CS Approval</h3>
+          <p>Matches mid-confidence articles. AI drafts the response and queues it for agent review and editing.</p>
+        </div>
+        
+        <div class="deck-card path-card" style="border-top-color: #7A5AF8;">
+          <div class="path-badge" style="background: #F4EBFF; color: #7A5AF8;">Confidence < 50%</div>
+          <h3>Type 1: Eng Escalation</h3>
+          <p>Novel bugs with low confidence are automatically escalated to Engineering with reproduction steps and diagnostic logs.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 3: System Architecture -->
+    <div class="slide-content slide-standard-layout fade-in" *ngIf="currentSlide === 3">
+      <div class="slide-head">
+        <span class="slide-num">03</span>
+        <h2 class="slide-title">System Architecture: Three-Layer Stack</h2>
+      </div>
+      
+      <div class="architecture-layers">
+        <div class="arch-layer-box presentation">
+          <div class="layer-title-bar">
+            <span class="layer-badge">Layer 1</span>
+            <strong>Presentation Layer (UI/UX)</strong>
+          </div>
+          <div class="layer-grid">
+            <div class="layer-pill">Customer Chat View</div>
+            <div class="layer-pill">CS Agent Queue</div>
+            <div class="layer-pill">Interactive Analytics Dashboard</div>
+            <div class="layer-pill">Golden Regression Set</div>
+          </div>
+        </div>
+
+        <div class="arch-layer-box intelligence">
+          <div class="layer-title-bar">
+            <span class="layer-badge">Layer 2</span>
+            <strong>Intelligence & Routing Engine</strong>
+          </div>
+          <div class="layer-grid">
+            <div class="layer-pill">Online LLM Classifier (Claude/OpenAI)</div>
+            <div class="layer-pill">Offline Keyword Backup Classifier</div>
+            <div class="layer-pill">Dynamic Score Triage Engine</div>
+            <div class="layer-pill">Rich Text & Injection Formatter</div>
+          </div>
+        </div>
+
+        <div class="arch-layer-box state">
+          <div class="layer-title-bar">
+            <span class="layer-badge">Layer 3</span>
+            <strong>Shared State & Data</strong>
+          </div>
+          <div class="layer-grid">
+            <div class="layer-pill">RxJS DemoStateService</div>
+            <div class="layer-pill">Live Knowledge Base Store</div>
+            <div class="layer-pill">Expert-Labeled Regression Cases</div>
+            <div class="layer-pill">Activity Logs & Counter Accumulators</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 4: Process Flow -->
+    <div class="slide-content slide-standard-layout fade-in" *ngIf="currentSlide === 4">
+      <div class="slide-head">
+        <span class="slide-num">04</span>
+        <h2 class="slide-title">End-to-End Processing Sequence</h2>
+      </div>
+      <p class="slide-desc">
+        Watch how a customer issue transitions through AI, triage routing, and manual agent review.
+      </p>
+
+      <div class="slide-timeline">
+        <div class="timeline-step">
+          <div class="step-header">
+            <span class="step-role customer">Customer</span>
+            <h4>1. Describe Issue</h4>
+          </div>
+          <p>User submits inquiry. System starts classification process.</p>
+        </div>
+
+        <div class="timeline-divider">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+
+        <div class="timeline-step">
+          <div class="step-header">
+            <span class="step-role ai">AI Classifier</span>
+            <h4>2. Score Match</h4>
+          </div>
+          <p>Compares text to KB. Calculates confidence score (0-100%).</p>
+        </div>
+
+        <div class="timeline-divider">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+
+        <div class="timeline-step">
+          <div class="step-header">
+            <span class="step-role engine">Router</span>
+            <h4>3. Route Triage</h4>
+          </div>
+          <p>Buckets score into bands based on active thresholds.</p>
+        </div>
+
+        <div class="timeline-divider">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+
+        <div class="timeline-step highlight">
+          <div class="step-header">
+            <span class="step-role cs">CS / Customer</span>
+            <h4>4. Human Loop</h4>
+          </div>
+          <p>Agent approves or customer confirms. Flywheel records outcome.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 5: Interactive Triage Routing Model -->
+    <div class="slide-content slide-standard-layout fade-in" *ngIf="currentSlide === 5">
+      <div class="slide-head">
+        <span class="slide-num">05</span>
+        <h2 class="slide-title">Interactive Triage Routing Model</h2>
+      </div>
+      <p class="slide-desc">
+        Adjust the thresholds below. Observe how ticket volume redistributes between automated and manual agent queues in real-time.
+      </p>
+
+      <div class="interactive-routing-panel">
+        
+        <!-- Live Threshold Sliders -->
+        <div class="sliders-section">
+          <h3>Triage Threshold Settings</h3>
+          
+          <div class="slider-control">
+            <div class="slider-header">
+              <span>Auto-Resolve Threshold</span>
+              <strong style="color: var(--success-700);">{{ thresholds.auto }}%</strong>
+            </div>
+            <input type="range" min="60" max="98" step="1" 
+                   [ngModel]="thresholds.auto" 
+                   (ngModelChange)="onThresholdChange('auto', $event)" 
+                   class="slider-bar range-success">
+            <span class="slider-hint">Confidence above this resolves without human intervention.</span>
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span>CS Approval Threshold</span>
+              <strong style="color: var(--primary-700);">{{ thresholds.approve }}%</strong>
+            </div>
+            <input type="range" min="45" max="85" step="1" 
+                   [ngModel]="thresholds.approve" 
+                   (ngModelChange)="onThresholdChange('approve', $event)" 
+                   class="slider-bar range-primary">
+            <span class="slider-hint">Scores in this range generate drafts for agent confirmation.</span>
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span>CS Rewrite Threshold</span>
+              <strong style="color: var(--warning-700);">{{ thresholds.rewrite }}%</strong>
+            </div>
+            <input type="range" min="20" max="65" step="1" 
+                   [ngModel]="thresholds.rewrite" 
+                   (ngModelChange)="onThresholdChange('rewrite', $event)" 
+                   class="slider-bar range-warning">
+            <span class="slider-hint">Scores below this trigger full manual rewrite workflow.</span>
+          </div>
+
+          <button class="slide-btn action" (click)="resetThresholds()" style="margin-top: 16px;">
+            Reset Thresholds
+          </button>
+        </div>
+
+        <!-- Live Queue Distribution -->
+        <div class="live-stats-section">
+          <h3>Live Queue Distribution</h3>
+          
+          <div class="dist-bands">
+            <div class="dist-band-card" style="border-left: 4px solid var(--success-600);">
+              <div class="band-top">
+                <span class="band-label">Auto-resolve</span>
+                <span class="band-count">{{ getBandCount('auto') }} tickets</span>
+              </div>
+              <p>Score: &gt;= {{ thresholds.auto }}%</p>
+              <div class="progress-bar-wrap">
+                <div class="progress-fill" style="background: var(--success-600);" [style.width.%]="(getBandCount('auto') / demo.queue.length) * 100"></div>
+              </div>
+            </div>
+
+            <div class="dist-band-card" style="border-left: 4px solid var(--primary-600);">
+              <div class="band-top">
+                <span class="band-label">CS approval</span>
+                <span class="band-count">{{ getBandCount('approve') }} tickets</span>
+              </div>
+              <p>Score: {{ thresholds.approve }} - {{ thresholds.auto - 1 }}%</p>
+              <div class="progress-bar-wrap">
+                <div class="progress-fill" style="background: var(--primary-600);" [style.width.%]="(getBandCount('approve') / demo.queue.length) * 100"></div>
+              </div>
+            </div>
+
+            <div class="dist-band-card" style="border-left: 4px solid var(--warning-600);">
+              <div class="band-top">
+                <span class="band-label">CS rewrite</span>
+                <span class="band-count">{{ getBandCount('rewrite') }} tickets</span>
+              </div>
+              <p>Score: {{ thresholds.rewrite }} - {{ thresholds.approve - 1 }}%</p>
+              <div class="progress-bar-wrap">
+                <div class="progress-fill" style="background: var(--warning-600);" [style.width.%]="(getBandCount('rewrite') / demo.queue.length) * 100"></div>
+              </div>
+            </div>
+
+            <div class="dist-band-card" style="border-left: 4px solid var(--error-600);">
+              <div class="band-top">
+                <span class="band-label">Engineering Escalation</span>
+                <span class="band-count">{{ getBandCount('eng') }} tickets</span>
+              </div>
+              <p>Score: &lt; {{ thresholds.rewrite }}%</p>
+              <div class="progress-bar-wrap">
+                <div class="progress-fill" style="background: var(--error-600);" [style.width.%]="(getBandCount('eng') / demo.queue.length) * 100"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SLIDE 6: Key Design Decisions -->
+    <div class="slide-content slide-standard-layout fade-in" *ngIf="currentSlide === 6">
+      <div class="slide-head">
+        <span class="slide-num">06</span>
+        <h2 class="slide-title">Key Engineering Decisions</h2>
+      </div>
+      <p class="slide-desc">
+        Four architectural patterns that make this demo resilient and high-performing.
+      </p>
+
+      <div class="decisions-container-grid">
+        <div class="deck-card decision-card">
+          <div class="decision-head">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-600)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+            <h4>Tab History Survival</h4>
+          </div>
+          <p>
+            Customer chat view is <code>[hidden]</code> rather than destroyed. Chat history, scroll offsets, and classifier inputs survive when support reps switch to inspect console tabs.
+          </p>
+        </div>
+
+        <div class="deck-card decision-card">
+          <div class="decision-head">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-600)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <h4>Guided Topic Chips</h4>
+          </div>
+          <p>
+            Broad category choices dynamically expand to micro sub-topics. If model confidence is low, users are guided safely to narrow classifications, preventing endless follow-up loops.
+          </p>
+        </div>
+
+        <div class="deck-card decision-card">
+          <div class="decision-head">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-600)" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            <h4>Zero-Latency Offline Fallback</h4>
+          </div>
+          <p>
+            An in-browser client-side keyword classifier automatically activates if backend network drops. Demos run smoothly offline with local KB matching and response rendering.
+          </p>
+        </div>
+
+        <div class="deck-card decision-card">
+          <div class="decision-head">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-600)" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <h4>Shared Reactive Service Store</h4>
+          </div>
+          <p>
+            One single state provider (<code>DemoStateService</code>) broadcasts live changes via RxJS Subjects. Triggering reopens, resolving tickets, or edits updates Analytics live across all views.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 7: AI-Native Roadmap -->
+    <div class="slide-content slide-standard-layout fade-in" *ngIf="currentSlide === 7">
+      <div class="slide-head">
+        <span class="slide-num">07</span>
+        <h2 class="slide-title">AI-Native Implementation Roadmap</h2>
+      </div>
+      <p class="slide-desc">
+        A breakdown of currently active capabilities vs pending architecture layers.
+      </p>
+
+      <div class="roadmap-slide-grid">
+        <div class="roadmap-slide-column">
+          <div class="column-header implemented">
+            <span>ACTIVE CAPABILITIES</span>
+          </div>
+          <ul class="roadmap-slide-list">
+            <li>
+              <strong>LLM Online Classification</strong>
+              <p>Scores ticket intent against KB vectors on-the-fly when online.</p>
+            </li>
+            <li>
+              <strong>Two-Level Guided Chips</strong>
+              <p>Allows user to self-narrow topics when confidence is low.</p>
+            </li>
+            <li>
+              <strong>Simulated CS Agent Sync</strong>
+              <p>Seamless handoff with automated fallback replies from Maya.</p>
+            </li>
+          </ul>
+        </div>
+
+        <div class="roadmap-slide-column">
+          <div class="column-header pending">
+            <span>PENDING AI-NATIVE LAYERS</span>
+          </div>
+          <ul class="roadmap-slide-list">
+            <li>
+              <strong>Vector Semantic Search</strong>
+              <p>Replace keyword matching with semantic embeddings search via local database index.</p>
+            </li>
+            <li>
+              <strong>Fine-Tuning Flywheel</strong>
+              <p>Inject agent-approved rewrites as few-shot weights in classification models.</p>
+            </li>
+            <li>
+              <strong>Automated Safety Eval</strong>
+              <p>CI/CD pipeline test runs evaluating classification drift against golden datasets.</p>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 8: How to Test the Demo -->
+    <div class="slide-content slide-standard-layout fade-in" *ngIf="currentSlide === 8">
+      <div class="slide-head">
+        <span class="slide-num">08</span>
+        <h2 class="slide-title">Walkthrough: How to Run the Demo</h2>
+      </div>
+      <p class="slide-desc text-center">
+        Follow these steps to present a comprehensive end-to-end demo session.
+      </p>
+
+      <div class="walkthrough-checklist">
+        <div class="walkthrough-item">
+          <div class="item-circle">1</div>
+          <div class="item-body">
+            <strong>Show upfront deflection</strong>
+            <p>Open Customer tab, expand 'Known issues we're tracking'. Click one to show immediate workaround with zero messaging.</p>
+          </div>
+        </div>
+
+        <div class="walkthrough-item">
+          <div class="item-circle">2</div>
+          <div class="item-body">
+            <strong>Run happy-path auto-resolve</strong>
+            <p>Type <em>"My booking widget disappeared after publishing"</em>. Follow steps, resolve, and watch the Analytics charts jump instantly.</p>
+          </div>
+        </div>
+
+        <div class="walkthrough-item">
+          <div class="item-circle">3</div>
+          <div class="item-body">
+            <strong>Trigger CS Agent approval & edit</strong>
+            <p>Change thresholds, run a type-2 scenario, navigate to the CS Console Approval Queue to approve or rewrite the draft reply.</p>
+          </div>
+        </div>
+
+        <div class="walkthrough-item">
+          <div class="item-circle">4</div>
+          <div class="item-body">
+            <strong>Review the Golden Set</strong>
+            <p>Go to the Golden set tab, run the 14 regression cases, and tweak thresholds to show how live pass-rates respond.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Slide Footer Navigation -->
+  <footer class="slides-footer">
+    <!-- Progress bar -->
+    <div class="progress-container" (click)="goToSlide(currentSlide)">
+      <div class="progress-bar-total">
+        <div class="progress-bar-fill" [style.width.%]="((currentSlide + 1) / totalSlides) * 100"></div>
+      </div>
+    </div>
+
+    <div class="nav-controls">
+      <button class="slide-btn arrow" (click)="prev()" [disabled]="currentSlide === 0" title="Previous Slide (ArrowLeft / Backspace)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+        </svg>
+        Prev
+      </button>
+
+      <!-- Dots navigation -->
+      <div class="nav-dots">
+        <button *ngFor="let slide of [].constructor(totalSlides); let i = index" 
+                class="dot-btn" 
+                [class.active]="i === currentSlide" 
+                (click)="goToSlide(i)"
+                [attr.title]="'Go to slide ' + (i + 1)">
+        </button>
+      </div>
+
+      <button class="slide-btn arrow" (click)="next()" [disabled]="currentSlide === totalSlides - 1" title="Next Slide (ArrowRight / Space)">
+        Next
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+        </svg>
+      </button>
+    </div>
+  </footer>
+</div>

@@ -32,6 +32,43 @@
   border-radius: 50%;
   background: var(--success-500);
   display: inline-block;
+  transition: background 0.3s;
+
+  &.offline  { background: var(--gray-400); }
+  &.checking { background: var(--gray-400); animation: dot-pulse 1.2s ease-in-out infinite; }
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+
+.backend-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: background 0.3s, color 0.3s;
+
+  &.mode-online {
+    background: var(--success-50);
+    color: var(--success-700);
+    border: 1px solid var(--success-200, #a7f3d0);
+  }
+  &.mode-offline {
+    background: var(--gray-100);
+    color: var(--gray-500);
+    border: 1px solid var(--gray-200);
+  }
+  &.mode-checking {
+    background: var(--gray-100);
+    color: var(--gray-400);
+    border: 1px solid var(--gray-200);
+    animation: dot-pulse 1.2s ease-in-out infinite;
+  }
 }
 
 .refresh-btn, .replay-btn {
