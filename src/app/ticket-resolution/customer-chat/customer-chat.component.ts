@@ -1,6 +1,6 @@
 import { Component, Input, OnChanges, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { SCENARIOS, TYPE_META, routeFor, Thresholds, ScenarioStep, Scenario, QueueTicket } from '../ticket-data';
+import { SCENARIOS, TYPE_META, routeFor, Thresholds, ScenarioStep, Scenario, QueueTicket, KbEntry } from '../ticket-data';
 import { TicketResolutionApiService } from '../ticket-resolution-api.service';
 import { classifyIssue, isBugIntent, isVagueQuery, isNegationQuery, isChitChat, parseResolutionText, LocalClassifyResult, BUG_SYMPTOM_KEYWORDS, NOVEL_SIGNALS, hydrateScenario, scoreKb } from '../local-classifier';
 import { DemoStateService } from '../demo-state.service';
@@ -883,6 +883,50 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     this.composerText = prompt;
     this.lastChipLabel = prompt;
     this.onSend();
+  }
+
+  // ── Known Issues upfront panel ──────────────────────────────────────────────
+  expandedKnownIssueId: string | null = null;
+
+  get knownBugs(): KbEntry[] {
+    return this.demo.kb.filter(k => k.kind === 'known-bug');
+  }
+
+  toggleKnownIssue(id: string) {
+    this.expandedKnownIssueId = this.expandedKnownIssueId === id ? null : id;
+  }
+
+  selectKnownIssue(kb: KbEntry) {
+    const ticketId = `TCK-${2060 + this.demo.kb.indexOf(kb)}`;
+    const knownScenario: Scenario = {
+      id: '__known',
+      label: kb.title,
+      type: 2,
+      confidence: 85,
+      productArea: kb.tags[0] || 'General',
+      priority: 'P2',
+      summary: kb.title,
+      jira: kb.jira,
+      eta: kb.etaDays ? `Fix expected in ~${kb.etaDays} days` : undefined,
+      kbId: kb.id,
+      ticketId,
+      steps: [
+        {
+          from: 'ai',
+          kind: 'known',
+          headline: "This is a known issue we're already fixing",
+          intro: kb.content,
+          workaround: kb.steps,
+        },
+      ],
+    };
+    this.SCENARIOS = { ...this.SCENARIOS, __known: knownScenario };
+    this.sid = '__known';
+    this.n = 1;
+    this.halted = true;
+    this.customTicketId = ticketId;
+    this.expandedKnownIssueId = null;
+    setTimeout(() => this.scrollToBottom(), 50);
   }
 
   get steps(): ScenarioStep[] { return this.scenario.steps; }

@@ -39,6 +39,45 @@
       </div>
     </div>
 
+    <!-- Known Issues Panel — shown upfront before any classification -->
+    <div *ngIf="!classified && knownBugs.length" class="known-issues-panel">
+      <div class="known-issues-header">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--warning-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span class="known-issues-label">Known issues we're actively tracking</span>
+        <span class="known-issues-count">{{ knownBugs.length }}</span>
+      </div>
+      <div class="known-issues-list">
+        <div *ngFor="let kb of knownBugs" class="known-issue-item" [class.expanded]="expandedKnownIssueId === kb.id">
+          <button class="known-issue-row" (click)="toggleKnownIssue(kb.id)">
+            <span class="known-issue-title">{{ kb.title }}</span>
+            <span class="known-issue-badges">
+              <span *ngIf="kb.etaDays" class="eta-badge">Fix in ~{{ kb.etaDays }}d</span>
+              <span *ngIf="kb.jira" class="jira-badge">{{ kb.jira }}</span>
+            </span>
+            <svg class="ki-chevron" [class.open]="expandedKnownIssueId === kb.id" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          <div *ngIf="expandedKnownIssueId === kb.id" class="known-issue-detail">
+            <p class="known-issue-desc">{{ kb.content }}</p>
+            <div class="ki-workaround">
+              <div class="ki-workaround-label">Workaround</div>
+              <div *ngFor="let s of kb.steps" class="ki-workaround-step">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--warning-600)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px;"><polyline points="20 6 9 17 4 12"/></svg>
+                {{ s }}
+              </div>
+            </div>
+            <button class="select-issue-btn" (click)="selectKnownIssue(kb)">
+              This is my issue — show full workaround
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Messages -->
     <div class="chat-messages" #scrollEl>
       
