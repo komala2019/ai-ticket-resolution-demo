@@ -86,7 +86,6 @@ export const NOVEL_SIGNALS = [
   { phrase: 'after your update',     weight: 13 },
   { phrase: 'after the upgrade',     weight: 13 },
   { phrase: 'since the latest',      weight: 12 },
-  { phrase: 'business-critical',     weight: 11 },
   { phrase: 'no longer',             weight: 10 },
   { phrase: 'broke',                 weight: 10 },
   { phrase: 'suddenly',              weight:  8 },
@@ -105,9 +104,13 @@ export const BUG_SYMPTOM_KEYWORDS = [
 export const URGENCY_SIGNALS = [
   { phrase: 'business-critical', weight: 40 },
   { phrase: 'outage',            weight: 35 },
+  { phrase: 'all properties',    weight: 30 },
   { phrase: 'critical',          weight: 25 },
   { phrase: 'all users',         weight: 25 },
+  { phrase: 'offline',           weight: 25 },
+  { phrase: 'gateway error',     weight: 25 },
   { phrase: 'everyone affected', weight: 22 },
+  { phrase: 'all guests',        weight: 22 },
   { phrase: 'revenue',           weight: 20 },
   { phrase: 'lost',              weight: 20 },
   { phrase: 'urgent',            weight: 20 },
@@ -119,6 +122,11 @@ export const URGENCY_SIGNALS = [
   { phrase: 'customer',          weight:  8 },
 ];
 
+const URGENCY_NOISE_TOKENS = new Set([
+  'busines', 'critical', 'outage', 'revenue', 'urgent', 'asap',
+  'everyone', 'affect', 'down', 'all',
+]);
+
 const STOP = new Set([
   'the', 'a', 'an', 'is', 'are', 'was', 'were', 'my', 'i', 'to', 'of', 'on', 'in', 'it',
   'and', 'or', 'for', 'with', 'this', 'that', 'just', 'have', 'has', 'not', 'no', 'you',
@@ -127,8 +135,13 @@ const STOP = new Set([
 
 // ── Core helpers ──────────────────────────────────────────────────────────────
 
+const IRREGULAR_VERBS = {
+  sent: 'send', ran: 'run', went: 'go', broke: 'break', lost: 'lose', gone: 'go',
+};
+
 function norm(w) {
   w = w.toLowerCase();
+  if (IRREGULAR_VERBS[w]) return IRREGULAR_VERBS[w];
   if (w.length > 5 && w.endsWith('ing')) w = w.slice(0, -3);
   else if (w.length > 4 && w.endsWith('ed')) w = w.slice(0, -2);
   else if (w.length > 3 && w.endsWith('s')) w = w.slice(0, -1);
@@ -218,10 +231,11 @@ function scoreKb(haystack, kb, excludeIds = new Set()) {
     const titleMatchFraction = matchedInTitle / titleSize;
 
     const matchedInEntry = queryArr.filter(t => entryTokens.has(t)).length;
-    const entryMatchFraction = matchedInEntry / Math.max(1, queryArr.length);
+    const issueQueryLen = Math.max(1, queryArr.filter(t => !URGENCY_NOISE_TOKENS.has(t)).length);
+    const entryMatchFraction = matchedInEntry / issueQueryLen;
 
     const matchedInTags = queryArr.filter(t => entryTagWords.has(t)).length;
-    const tagMatchFraction = matchedInTags / Math.max(1, queryArr.length);
+    const tagMatchFraction = matchedInTags / issueQueryLen;
 
     const rawScore = titleMatchFraction * KB_SCORE_WEIGHTS.title
       + entryMatchFraction * KB_SCORE_WEIGHTS.entry
@@ -268,18 +282,29 @@ export function classifyIssue(message, kb, thresholds, excludeIds = new Set()) {
   const best = scored[0] || null;
   const bestScore = best ? best.score : 0;
 
-  const firedNovelSignals = NOVEL_SIGNALS.filter(s => haystack.includes(s.phrase));
+  const firedNovelSignals = NOVEL_SIGNALS.filter(s =>
+    s.phrase.includes(' ')
+      ? haystack.includes(s.phrase)
+      : new RegExp('(?<![a-z])' + s.phrase + '(?![a-z])').test(haystack)
+  );
   const looksNovel = firedNovelSignals.length > 0;
   const novelPenalty = Math.min(35, firedNovelSignals.reduce((acc, s) => acc + s.weight, 0));
-  let confidence = Math.max(0, Math.min(100, bestScore - novelPenalty));
+
+  const areaTag = area !== 'General' ? area.toLowerCase().split(/\s+/)[0] : null;
+  const areaMatchBonus = (areaTag && best)
+    ? ((best.entry.tags || []).some(t2 => t2.toLowerCase().includes(areaTag)) ? 10 : 0)
+    : 0;
+
+  let confidence = Math.max(0, Math.min(100, bestScore - novelPenalty + areaMatchBonus));
 
   const route = routeFor(confidence, t);
 
   const isSelfService = best ? best.entry.kind === 'self-service' : false;
   const hasBug = best ? mentionsKnownBug(best.entry) : false;
+  const effectiveRewrite = isSelfService ? Math.round(t.rewrite * 0.6) : t.rewrite;
 
   let type;
-  if (looksNovel || !best || confidence < t.rewrite) type = 1;
+  if (looksNovel || !best || confidence < effectiveRewrite) type = 1;
   else if ((confidence >= t.auto || isSelfService) && !hasBug) type = 3;
   else type = 2;
 
@@ -292,9 +317,12 @@ export function classifyIssue(message, kb, thresholds, excludeIds = new Set()) {
   let headline, intro, steps, escalated;
   if (type === 1) {
     escalated = true;
-    headline = "This looks like a new issue — escalating it with full context";
-    intro = "I don't have a confident fix in the knowledge base, so I won't guess. " +
-      "I've packaged everything engineering needs and flagged it " + priority + ".";
+    headline = looksNovel
+      ? 'This looks like a new issue — escalating it with full context'
+      : "Couldn't find a confident match — opening a support ticket";
+    intro = looksNovel
+      ? "I don't have a confident fix in the knowledge base, so I won't guess. I've packaged everything engineering needs and flagged it " + priority + "."
+      : "I wasn't able to identify a specific fix for this. I've opened a ticket so the team can look into it — adding a screenshot or steps to reproduce will help.";
     steps = [];
   } else {
     escalated = false;

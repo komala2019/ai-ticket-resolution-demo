@@ -10,6 +10,33 @@ type OutcomeKind = 'fixed' | 'notify' | 'failed' | null;
 const SLA_BY_PRIORITY: Record<string, string> = { P1: '1-hour', P2: '4-hour', P3: '24-hour' };
 const AGENT_EXTRA_SIGNALS = ['sync', 'still broken'];
 
+/** Targeted follow-up for each area-specific chip so repeated clicks don't loop on the same generic message. */
+const CHIP_FOLLOW_UPS: Record<string, { question: string; subChips: string[] }> = {
+  // Booking engine
+  'Rate plan problem':       { question: 'Which aspect of rate plans is the issue?',                     subChips: ['Rates not displaying', 'Wrong price shown', 'Currency/conversion issue', 'Availability problem'] },
+  'Currency at checkout':    { question: 'What exactly is wrong with the currency at checkout?',          subChips: ['Wrong currency symbol', 'Incorrect amount', 'Conversion not working', 'Multiple currencies shown'] },
+  'Widget still missing':    { question: 'Where is the widget missing — all pages or a specific one?',   subChips: ['Missing from all pages', 'Missing after publish', 'Shows desktop, not mobile', 'Never worked'] },
+  'Different page issue':    { question: 'Which page is the issue on, and what do you see?',             subChips: ['Booking confirmation page', 'Room / property page', 'Homepage', 'Search results'] },
+  // Analytics
+  'Charts still blank':      { question: 'Are all charts blank or just some? Which browser are you using?', subChips: ['All charts blank', 'Only specific charts', 'Chrome only', 'After changing date range'] },
+  'Wrong data shown':        { question: 'What data looks incorrect — totals, dates, or filters?',       subChips: ['Wrong totals', 'Missing recent data', 'Date range issue', 'Wrong property'] },
+  'Export not working':      { question: 'What happens when you try to export?',                         subChips: ['Download never starts', 'File is empty', 'Wrong format', 'Error message shown'] },
+  'Different dashboard':     { question: 'Which dashboard has the issue?',                               subChips: ['Overview dashboard', 'Revenue report', 'Occupancy report', 'Custom report'] },
+  // Account
+  "Can't invite teammate":   { question: 'What happens when you try to invite? Button grayed out or an error?', subChips: ['Button grayed out', 'Error after clicking', 'Invite email not received', 'Seat limit reached'] },
+  'Login problem':           { question: 'What happens when you try to log in?',                         subChips: ['Page shows error', 'Redirected away', 'Password not accepted', '2FA issue'] },
+  'Billing question':        { question: 'What is the billing issue?',                                   subChips: ['Wrong charge', 'Invoice missing', 'Plan upgrade/downgrade', 'Payment method'] },
+  'Permission issue':        { question: 'Which permission is wrong?',                                   subChips: ['Read-only when should edit', 'Missing section', 'Admin rights not applied', 'Team member access'] },
+  // Email campaigns
+  'Still sending twice':     { question: 'Is it still duplicating, or was it a one-time occurrence?',    subChips: ['Happening on new campaigns', 'Was a one-time event', 'Specific segment only', 'Need to check send log'] },
+  'Campaign not sending':    { question: 'Is the campaign stuck in a specific state?',                   subChips: ['Stuck in draft', 'Scheduled but not sent', 'Processing forever', 'Error message shown'] },
+  'Segment issue':           { question: 'What is wrong with the segment?',                              subChips: ['Wrong contacts included', 'Count seems off', "Segment won't save", 'Filter not working'] },
+  // Integrations
+  'Sync still failing':      { question: 'What does the sync error say, and which records are affected?', subChips: ['All records failing', 'Specific field error', 'Auth/credential issue', 'Partial sync only'] },
+  'API error':               { question: 'Which API endpoint is erroring and what HTTP status do you see?', subChips: ['401 Unauthorized', '500 Server error', 'Timeout / no response', 'Wrong data returned'] },
+  'Webhook issue':           { question: 'What is the webhook problem?',                                 subChips: ['Events not received', 'Payload wrong format', 'Duplicate events', 'Signature validation failing'] },
+};
+
 @Component({
   selector: 'app-tr-customer-chat',
   templateUrl: './customer-chat.component.html',
@@ -51,6 +78,10 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   customTicketId: string | null = null;
   /** Live backend answer from the assistant route when the user submits a custom issue. */
   liveAnswer: string | null = null;
+  /** The chip label that triggered the current send — used to pick a chip-specific clarification. */
+  lastChipLabel: string | null = null;
+  /** Sub-chips to display after a chip-specific clarification question. */
+  activeSubChips: string[] | null = null;
 
   private timer: any;
   private sub?: Subscription;
@@ -63,6 +94,9 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     const attachment = this.pendingAttachment || undefined;
     this.composerText = '';
     this.pendingAttachment = null;
+    const chipLabel = this.lastChipLabel;
+    this.lastChipLabel = null;
+    this.activeSubChips = null;
 
     // When an image is attached with no text, extract context from the filename
     // so the classifier has something to work with beyond the generic fallback.
@@ -319,14 +353,25 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       // Allow a 3rd round only when confidence genuinely improved on the 2nd round.
       // Compare BEFORE updating lastConfidence so we don't always see improvement vs 0.
       } else if (isVague && this.rephraseCount < (this.rephraseCount === 2 && score > this.lastConfidence ? 3 : 2)) {
-        this.rephraseCount++;
-        this.lastConfidence = score;
-        const clarifyText = this.rephraseCount === 1
-          ? `I can see this is related to the **${area}** area, but I need a bit more detail to find the right fix. What exactly do you see — is something missing, showing an error, or not loading?`
-          : `I want to make sure I give you the right answer. Could you describe the exact symptoms or steps to reproduce it?`;
-        const aiStep: ScenarioStep = { from: 'ai', text: clarifyText };
-        if (thinkIdx !== -1) stepsList[thinkIdx] = aiStep;
-        else stepsList.push(aiStep);
+        const chipFollow = chipLabel ? CHIP_FOLLOW_UPS[chipLabel] : null;
+        if (chipFollow) {
+          // Chip-specific question — show targeted sub-chips and advance past the loop limit.
+          this.activeSubChips = chipFollow.subChips;
+          this.rephraseCount = 3;  // sentinel: next message goes straight to classification
+          this.lastConfidence = score;
+          const aiStep: ScenarioStep = { from: 'ai', text: chipFollow.question };
+          if (thinkIdx !== -1) stepsList[thinkIdx] = aiStep;
+          else stepsList.push(aiStep);
+        } else {
+          this.rephraseCount++;
+          this.lastConfidence = score;
+          const clarifyText = this.rephraseCount === 1
+            ? `I can see this is related to the **${area}** area, but I need a bit more detail. What exactly do you see — is something missing, showing an error, or not loading?`
+            : `I want to make sure I give you the right answer. Could you describe the exact symptoms or steps to reproduce it?`;
+          const aiStep: ScenarioStep = { from: 'ai', text: clarifyText };
+          if (thinkIdx !== -1) stepsList[thinkIdx] = aiStep;
+          else stepsList.push(aiStep);
+        }
         this.n = stepsList.length;
         this.halted = false;
 
@@ -367,11 +412,20 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         const preEscalateLimit = area !== 'General' ? 1 : 2;
 
         if (finalType === 1 && !isGenuinelyNovel && this.rephraseCount < preEscalateLimit) {
-          this.rephraseCount++;
+          const chipFollow = chipLabel ? CHIP_FOLLOW_UPS[chipLabel] : null;
+          let deepenText: string;
+          if (chipFollow) {
+            // Chip-specific follow-up: expose sub-chips and skip to the limit so no further loops.
+            this.activeSubChips = chipFollow.subChips;
+            this.rephraseCount = preEscalateLimit;  // next message bypasses this branch
+            deepenText = chipFollow.question;
+          } else {
+            this.rephraseCount++;
+            deepenText = this.rephraseCount === 1
+              ? `I can see this is in the **${area}** area, but I need a bit more detail. Could you describe:\n• What exactly do you see — error message, blank screen, wrong value?\n• When did it start, and did anything change recently?`
+              : `Still narrowing this down. A few more details would help:\n• Is there a specific error code or message?\n• Does it happen for all users or just you?\n• Did anything change recently — new setting, permission, or update?`;
+          }
           this.lastConfidence = finalScore;
-          const deepenText = this.rephraseCount === 1
-            ? `I can see this is in the **${area}** area, but I need a bit more detail to find the right fix. Could you describe:\n• What exactly do you see — error message, blank screen, wrong value?\n• When did it start, and did anything change recently?`
-            : `Still narrowing this down. A few more details would help:\n• Is there a specific error code or message?\n• Does it happen for all users or just you?\n• Did anything change recently — new setting, permission, or update?`;
           const deepenStep: ScenarioStep = { from: 'ai', text: deepenText };
           if (thinkIdx !== -1) stepsList[thinkIdx] = deepenStep;
           else stepsList.push(deepenStep);
@@ -640,6 +694,8 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   }
   /** Contextual quick-reply chips — shown throughout the custom chat, not just at the start. */
   get dynamicChips(): string[] {
+    // After a chip-specific clarification: show the targeted sub-chips the bot asked about.
+    if (this.activeSubChips) return [...this.activeSubChips, 'Different issue'];
     // Before any user interaction: generic topic starters
     if (this.n <= 1) {
       return [
@@ -679,6 +735,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
 
   sendStarter(prompt: string) {
     this.composerText = prompt;
+    this.lastChipLabel = prompt;
     this.onSend();
   }
 

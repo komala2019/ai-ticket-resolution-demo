@@ -24,7 +24,6 @@ export const NOVEL_SIGNALS: { phrase: string; weight: number }[] = [
   { phrase: 'after your update',     weight: 13 },
   { phrase: 'after the upgrade',     weight: 13 },
   { phrase: 'since the latest',      weight: 12 },
-  { phrase: 'business-critical',     weight: 11 },
   { phrase: 'no longer',             weight: 10 },
   { phrase: 'broke',                 weight: 10 },
   { phrase: 'suddenly',              weight:  8 },
@@ -100,9 +99,13 @@ export const BUG_SYMPTOM_KEYWORDS = [
 export const URGENCY_SIGNALS: { phrase: string; weight: number }[] = [
   { phrase: 'business-critical', weight: 40 },
   { phrase: 'outage',            weight: 35 },
+  { phrase: 'all properties',    weight: 30 },
   { phrase: 'critical',          weight: 25 },
   { phrase: 'all users',         weight: 25 },
+  { phrase: 'offline',           weight: 25 },
+  { phrase: 'gateway error',     weight: 25 },
   { phrase: 'everyone affected', weight: 22 },
+  { phrase: 'all guests',        weight: 22 },
   { phrase: 'revenue',           weight: 20 },
   { phrase: 'lost',              weight: 20 },
   { phrase: 'urgent',            weight: 20 },
@@ -114,6 +117,17 @@ export const URGENCY_SIGNALS: { phrase: string; weight: number }[] = [
   { phrase: 'customer',          weight:  8 },
 ];
 
+/**
+ * Meta-context tokens derived from urgency phrases that should NOT count
+ * against the KB match score — they describe business impact, not the
+ * technical issue itself. Stripping them from the effective query length
+ * prevents urgent messages from scoring artificially low on valid KB matches.
+ */
+const URGENCY_NOISE_TOKENS = new Set<string>([
+  'busines', 'critical', 'outage', 'revenue', 'urgent', 'asap',
+  'everyone', 'affect', 'down', 'all',
+]);
+
 const STOP = new Set([
   'the', 'a', 'an', 'is', 'are', 'was', 'were', 'my', 'i', 'to', 'of', 'on', 'in', 'it',
   'and', 'or', 'for', 'with', 'this', 'that', 'just', 'have', 'has', 'not', 'no', 'you',
@@ -122,10 +136,16 @@ const STOP = new Set([
 
 interface ScoredEntry { entry: KbEntry; score: number; }
 
-/** Normalize a word: lowercase, strip a simple plural/verb suffix so
- *  "campaigns"/"sending"/"charged" loosely match "campaign"/"send"/"charge". */
+/** Common irregular past-tense forms whose stems can't be derived by suffix stripping. */
+const IRREGULAR_VERBS: Record<string, string> = {
+  sent: 'send', ran: 'run', went: 'go', broke: 'break', lost: 'lose', gone: 'go',
+};
+
+/** Normalize a word: map irregular verbs, then strip suffix so
+ *  "campaigns"/"sending"/"charged"/"sent" loosely match "campaign"/"send"/"charge"/"send". */
 function norm(w: string): string {
   w = w.toLowerCase();
+  if (IRREGULAR_VERBS[w]) return IRREGULAR_VERBS[w];
   if (w.length > 5 && w.endsWith('ing')) w = w.slice(0, -3);
   else if (w.length > 4 && w.endsWith('ed')) w = w.slice(0, -2);
   else if (w.length > 3 && w.endsWith('s')) w = w.slice(0, -1);
@@ -249,12 +269,15 @@ function scoreKb(haystack: string, kb: KbEntry[], excludeIds: Set<string> = new 
     const titleMatchFraction = matchedInTitle / titleSize;
 
     // 2. How many query tokens appear anywhere in the entry (recall)?
+    // Use the effective (non-noise) query length as denominator so urgency words
+    // ("critical", "outage", "revenue") don't dilute scores on valid KB matches.
     const matchedInEntry = queryArr.filter(t => entryTokens.has(t)).length;
-    const entryMatchFraction = matchedInEntry / Math.max(1, queryArr.length);
+    const issueQueryLen = Math.max(1, queryArr.filter(t => !URGENCY_NOISE_TOKENS.has(t)).length);
+    const entryMatchFraction = matchedInEntry / issueQueryLen;
 
     // 3. How many query tokens match entry tag words (area signal)?
     const matchedInTags = queryArr.filter(t => entryTagWords.has(t)).length;
-    const tagMatchFraction = matchedInTags / Math.max(1, queryArr.length);
+    const tagMatchFraction = matchedInTags / issueQueryLen;
 
     // Weighted combination: title precision is the strongest discriminator.
     const rawScore = titleMatchFraction * KB_SCORE_WEIGHTS.title + entryMatchFraction * KB_SCORE_WEIGHTS.entry + tagMatchFraction * KB_SCORE_WEIGHTS.tags;
@@ -325,21 +348,35 @@ export function classifyIssue(message: string, kb: KbEntry[], thresholds: Thresh
   // One signal: –9 pts. Two: –18. Three+: capped at –35.
   // This avoids over-penalising messages that merely mention "after the update"
   // while still hard-damping messages saturated with regression language.
-  const firedNovelSignals = NOVEL_SIGNALS.filter(s => haystack.includes(s.phrase));
+  // Use word-boundary matching for single-word phrases so "broke" doesn't fire on "broken", etc.
+  const firedNovelSignals = NOVEL_SIGNALS.filter(s =>
+    s.phrase.includes(' ')
+      ? haystack.includes(s.phrase)
+      : new RegExp('(?<![a-z])' + s.phrase + '(?![a-z])').test(haystack)
+  );
   const looksNovel = firedNovelSignals.length > 0;
   const novelPenalty = Math.min(35, firedNovelSignals.reduce((acc, s) => acc + s.weight, 0));
-  let confidence = Math.max(0, Math.min(100, bestScore - novelPenalty));
+
+  // Area-match bonus: +10 pts when the best KB entry's tags include the detected area.
+  // This rewards "correct domain found" and compensates for urgency-word token dilution.
+  const areaTag = area !== 'General' ? area.toLowerCase().split(/\s+/)[0] : null;
+  const areaMatchBonus = (areaTag && best)
+    ? ((best.entry.tags || []).some(t2 => t2.toLowerCase().includes(areaTag)) ? 10 : 0)
+    : 0;
+
+  let confidence = Math.max(0, Math.min(100, bestScore - novelPenalty + areaMatchBonus));
 
   const route = routeFor(confidence, t);
 
-  // Self-service entries (user can fix it themselves) always get Type 3 once
-  // they clear the rewrite threshold — even if confidence is below auto — because
-  // the resolution path is a configuration change, not an engineering fix.
   const isSelfService = best ? best.entry.kind === 'self-service' : false;
   const hasBug = best ? mentionsKnownBug(best.entry) : false;
 
+  // Self-service entries use a lower effective threshold — worst case is showing
+  // a self-help article that doesn't quite fit, not misrouting to engineering.
+  const effectiveRewrite = isSelfService ? Math.round(t.rewrite * 0.6) : t.rewrite;
+
   let type: number;
-  if (looksNovel || !best || confidence < t.rewrite) type = 1;
+  if (looksNovel || !best || confidence < effectiveRewrite) type = 1;
   else if ((confidence >= t.auto || isSelfService) && !hasBug) type = 3;
   else type = 2;
 
@@ -352,9 +389,12 @@ export function classifyIssue(message: string, kb: KbEntry[], thresholds: Thresh
   let headline: string, intro: string, steps: string[], escalated: boolean;
   if (type === 1) {
     escalated = true;
-    headline = "This looks like a new issue — escalating it with full context";
-    intro = "I don't have a confident fix in the knowledge base, so I won't guess. " +
-      "I've packaged everything engineering needs and flagged it " + priority + ".";
+    headline = looksNovel
+      ? 'This looks like a new issue — escalating it with full context'
+      : "Couldn't find a confident match — opening a support ticket";
+    intro = looksNovel
+      ? "I don't have a confident fix in the knowledge base, so I won't guess. I've packaged everything engineering needs and flagged it " + priority + "."
+      : "I wasn't able to identify a specific fix for this. I've opened a ticket so the team can look into it — adding a screenshot or steps to reproduce will help.";
     steps = [];
   } else {
     escalated = false;
