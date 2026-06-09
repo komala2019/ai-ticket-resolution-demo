@@ -37,9 +37,9 @@ export class ArchitectureComponent {
       accent: 'var(--purple-500)',
       blurb: 'The classification and response layer that decides what every message means and where it should go.',
       items: [
-        { label: 'Classifier', sub: 'Keyword-based scoring against the knowledge base — detects vague messages, chit-chat, and product area, then guides the conversation toward a specific issue before classifying' },
-        { label: 'Routing engine', sub: 'Splits every classified ticket into one of four confidence bands: auto-resolve, CS approval, CS rewrite, or engineering escalation' },
-        { label: 'API service', sub: 'Sends the message and matching KB context to a Claude or OpenAI backend for a draft response — falls back gracefully to the offline classifier when unreachable' },
+        { label: 'Classifier — online (LLM)', sub: 'When the backend is reachable, every message is sent to a Claude or OpenAI model with the full knowledge base as context — the model returns a confidence score, matched article, and draft resolution' },
+        { label: 'Classifier — offline (keyword)', sub: 'When the backend is unreachable, a local keyword scorer runs entirely in the browser — detects product area, vague queries, and chit-chat, then guides the conversation through topic chips before scoring against the KB' },
+        { label: 'Routing engine', sub: 'Splits every classified ticket into one of four confidence bands: auto-resolve, CS approval, CS rewrite, or engineering escalation — works identically whether the LLM or offline classifier ran' },
         { label: 'Message formatter', sub: 'Converts AI reply text containing bold, italic, and bullet syntax into safe rendered HTML shown in chat bubbles — injected scripts cannot execute' },
       ],
     },
@@ -115,8 +115,9 @@ export class ArchitectureComponent {
     {
       title: 'Classification & Knowledge Retrieval',
       implemented: [
-        { label: 'Keyword matching', desc: 'Weighted keyword overlap scores each customer message against every KB article to find the closest match.' },
-        { label: 'Two-level topic guidance', desc: 'Broad area chips expand into specific sub-topic chips across five product areas — eliminates clarification loops.' },
+        { label: 'LLM classification (online)', desc: 'When connected, Claude or OpenAI scores the message against the knowledge base and returns a structured confidence score and matched article.' },
+        { label: 'Keyword classification (offline)', desc: 'When the backend is unreachable, a browser-side scorer uses weighted keyword overlap to find the closest KB match — no network needed.' },
+        { label: 'Two-level topic guidance', desc: 'Broad area chips expand into specific sub-topic chips across five product areas — eliminates clarification loops in both modes.' },
         { label: 'Known-issue panel', desc: 'Zero-typing path to workarounds: active known bugs appear as a collapsible panel before the conversation starts.' },
         { label: 'Exclusion list', desc: 'Articles matched in a previous attempt are skipped after the customer says "Still broken" — avoids serving the same answer twice.' },
       ],
