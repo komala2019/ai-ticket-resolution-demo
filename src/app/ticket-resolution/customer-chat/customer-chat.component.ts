@@ -2,7 +2,7 @@ import { Component, Input, OnChanges, OnDestroy, ViewChild, ElementRef } from '@
 import { Subscription } from 'rxjs';
 import { SCENARIOS, SCENARIO_ORDER, TYPE_META, routeFor, Thresholds, ScenarioStep, Scenario, QueueTicket } from '../ticket-data';
 import { TicketResolutionApiService } from '../ticket-resolution-api.service';
-import { buildDynamicScenario, classifyIssue, isBugIntent, isVagueQuery, parseResolutionText } from '../local-classifier';
+import { buildDynamicScenario, classifyIssue, isBugIntent, isVagueQuery, parseResolutionText, LocalClassifyResult } from '../local-classifier';
 import { DemoStateService } from '../demo-state.service';
 
 type OutcomeKind = 'fixed' | 'notify' | 'failed' | null;
@@ -106,7 +106,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         const stepsList = this.SCENARIOS['__custom'].steps;
         const thinkIdx = stepsList.findIndex(s => s.kind === 'thinking' && s.agent);
         
-        const replyText = getSimulatedAgentReply(msg);
+        const replyText = getSimulatedAgentReply(msg, this.SCENARIOS['__custom']?.steps.slice(0, this.n) || []);
         const agentStep: ScenarioStep = {
           from: 'ai',
           agent: true,
@@ -177,61 +177,29 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     this.api.chat(msg).subscribe(response => {
       const stepsList = this.SCENARIOS['__custom'].steps;
       const thinkIdx = stepsList.findIndex(s => s.kind === 'thinking');
-
       const isOffline = !response.ok || response.model === 'demo-fallback';
 
-      let aiStepText = response.answer || 'No reply returned.';
-
-      if (isOffline) {
-        if (!isBug) {
-          // Select from a pool of friendly, guiding replies to avoid repeated static text
-          const greetings = [
-            "Hello! I am your support copilot. I am currently operating in local mode. If you are experiencing a product issue (e.g., Booking Engine widget missing, Analytics charts blank, or Salesforce Lead Sync issues), please describe it in detail so I can retrieve the solution for you.",
-            "Hi there! As your support assistant, I am here to help you resolve technical bugs locally. If you have an issue related to Analytics, Email segments, Salesforce integration, or Account settings, please describe the problem here.",
-            "Welcome! If you have any questions or product bugs to report (such as invite button issues or campaign duplicates), please describe your issue. I can query our knowledge base locally and guide you to a resolution!"
-          ];
-          const randIdx = Math.floor(Math.random() * greetings.length);
-          aiStepText = greetings[randIdx];
-        } else {
-          // Use client-side classification on the CUMULATIVE context so short
-          // follow-up messages resolve correctly against prior turns.
-          const priorForClassify = currentSteps
-            .filter(s => s.from === 'user' && s.text)
-            .map(s => s.text || '')
-            .slice(-3);
-          const contextMsg = [...priorForClassify, msg].join(' ').trim();
-          const localResult = classifyIssue(contextMsg, this.demo.kb, this.thresholds);
-          if (localResult.type === 1) {
-            aiStepText = "I couldn't find a confident match for this issue in our local knowledge base. I recommend opening a support ticket below so we can escalate this to the engineering team.";
-          } else if (localResult.type === 2) {
-            aiStepText = "Based on your description, this matches a known issue: **" + localResult.headline + "** (" + localResult.confidence + "% confidence).\n\nWorkaround:\n" + localResult.intro;
-          } else {
-            aiStepText = "Based on your description, I found a matching resolution in our knowledge base: **" + localResult.headline + "** (" + localResult.confidence + "% confidence).\n\n" + localResult.intro;
-          }
-        }
-      }
-
-      // Build cumulative context from prior user messages in this conversation
-      // so short follow-ups like "widget missing" after "booking widget" are
-      // correctly evaluated as specific, not vague.
+      // ── Build cumulative context ONCE ──────────────────────────────────────
+      // Joining the last 3 user turns + this message means short follow-ups
+      // ("widget missing") are evaluated with the full conversation context.
       const priorUserTexts = currentSteps
         .filter(s => s.from === 'user' && s.text)
         .map(s => s.text || '')
-        .slice(-3); // last 3 user turns at most
+        .slice(-3);
       const cumulativeMsg = [...priorUserTexts, msg].join(' ').trim();
-
-      // isVague is true only when the COMBINED context is still vague
       const isVague = isVagueQuery(cumulativeMsg);
 
-      let score = response.confidence ?? 0;
-      let route = response.route || 'fallback';
-      let type = 3;
-      let area = 'General';
-      let kbId: string | undefined = undefined;
-      let evidence: { t: string; m: number }[] = [];
+      // ── Run classification ONCE ────────────────────────────────────────────
+      let score: number;
+      let route: string;
+      let type: number;
+      let area: string;
+      let kbId: string | undefined;
+      let evidence: { t: string; m: number }[];
+      let localResult: LocalClassifyResult | null = null;
 
       if (isOffline) {
-        const localResult = classifyIssue(cumulativeMsg, this.demo.kb, this.thresholds);
+        localResult = classifyIssue(cumulativeMsg, this.demo.kb, this.thresholds);
         score = localResult.confidence;
         route = localResult.route;
         type = localResult.type;
@@ -239,122 +207,107 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         kbId = localResult.bestKb ? localResult.bestKb.id : undefined;
         evidence = localResult.evidence;
       } else {
-        if (route.includes('escalate') || score < this.thresholds.rewrite) {
-          type = 1;
-        } else if (score < this.thresholds.auto) {
-          type = 2;
-        }
-
+        score = response.confidence ?? 0;
+        route = response.route || 'fallback';
+        type = 3;
+        area = 'General';
+        kbId = undefined;
+        evidence = [];
+        if (route.includes('escalate') || score < this.thresholds.rewrite) type = 1;
+        else if (score < this.thresholds.auto) type = 2;
         if (response.context && response.context.length > 0) {
           const topHit = response.context[0];
           kbId = topHit.id;
-          if (topHit.tags && topHit.tags.length > 0) {
-            area = topHit.tags[0];
-          }
-          evidence = response.context.slice(0, 2).map(r => ({
+          if (topHit.tags && topHit.tags.length > 0) area = topHit.tags[0];
+          evidence = response.context.slice(0, 2).map((r: any) => ({
             t: `${r.id} · ${r.title}`,
-            m: Math.round(r.score * 100)
+            m: Math.round(r.score * 100),
           }));
         }
       }
 
-
       const priority = type === 1 ? 'P1' : (type === 2 ? 'P2' : 'P3');
 
+      // ── Branch: non-bug chit-chat ──────────────────────────────────────────
       if (!isBug) {
-        const aiStep: ScenarioStep = {
-          from: 'ai',
-          text: aiStepText
-        };
-        // For general chit-chat: just display the AI's reply bubble without classification or thumbs
-        if (thinkIdx !== -1) {
-          stepsList[thinkIdx] = aiStep;
-        } else {
-          stepsList.push(aiStep);
-        }
+        const greetings = [
+          "Hello! Describe your product issue and I'll search the knowledge base for a fix — Booking Engine, Analytics, Email campaigns, Salesforce, or Account settings.",
+          "Hi there! I can diagnose product bugs locally. Tell me what's happening and I'll match it against our knowledge base.",
+          "Welcome! Describe the issue in plain language (what you see, when it started) and I'll find the right resolution.",
+        ];
+        const aiStepText = isOffline
+          ? greetings[Math.floor(Math.random() * greetings.length)]
+          : (response.answer || 'No reply returned.');
+        const aiStep: ScenarioStep = { from: 'ai', text: aiStepText };
+        if (thinkIdx !== -1) stepsList[thinkIdx] = aiStep;
+        else stepsList.push(aiStep);
         this.n = stepsList.length;
-        this.halted = false; // Allow user to reply immediately
+        this.halted = false;
+
+      // ── Branch: vague bug — ask for more detail (up to 2 rounds) ──────────
       } else if (isVague && this.rephraseCount < 2) {
-        // Vague query - step 1 or 2 of the clarification loop
         this.rephraseCount++;
         const clarifyText = this.rephraseCount === 1
-          ? `I see you're referencing the **${area}** area, but I need more details to suggest the right fix. Could you please describe what is happening (e.g., is the widget missing, are you seeing an error code, or is a button disabled)?`
-          : `I want to make sure I don't guess. Could you try describing the issue with a bit more context?`;
-
-        const aiStep: ScenarioStep = {
-          from: 'ai',
-          text: clarifyText
-        };
-        if (thinkIdx !== -1) {
-          stepsList[thinkIdx] = aiStep;
-        } else {
-          stepsList.push(aiStep);
-        }
+          ? `I can see this is related to the **${area}** area, but I need a bit more detail to find the right fix. What exactly do you see — is something missing, showing an error, or not loading?`
+          : `I want to make sure I give you the right answer. Could you describe the exact symptoms or steps to reproduce it?`;
+        const aiStep: ScenarioStep = { from: 'ai', text: clarifyText };
+        if (thinkIdx !== -1) stepsList[thinkIdx] = aiStep;
+        else stepsList.push(aiStep);
         this.n = stepsList.length;
-        this.halted = false; // Keep composer active for response
+        this.halted = false;
+
+      // ── Branch: detailed bug — classify and respond ────────────────────────
       } else {
-        // Detailed query, or vague query that has failed clarification twice
         let finalType = type;
         let finalPriority = priority;
         let finalScore = score;
         let finalRoute = route;
 
         if (isVague && this.rephraseCount === 2) {
+          // User couldn't clarify after 2 attempts — open a ticket
           this.rephraseCount = 3;
           finalType = 1;
           finalPriority = 'P3';
           finalScore = Math.min(score, this.thresholds.rewrite - 5);
           finalRoute = 'eng';
-          aiStepText = "I'm preparing to open a support ticket for our engineering team. To help us diagnose this faster, could you please upload a short screenshot/video recording of the issue, or describe the exact steps to reproduce it?";
         } else {
-          // Reset rephrase count for successful detailed queries
           this.rephraseCount = 0;
         }
 
-        const classifyStep: ScenarioStep = {
-          from: 'ai',
-          kind: 'classify'
-        };
-
+        const classifyStep: ScenarioStep = { from: 'ai', kind: 'classify' };
         let aiStep: ScenarioStep;
 
         if (finalType === 1) {
+          const isVagueFallback = isVague && this.rephraseCount === 3;
           aiStep = {
             from: 'ai',
             kind: 'novel',
-            headline: isVague && this.rephraseCount === 3
-              ? "We need a bit more context to route this"
-              : "This looks like a new issue — escalating it with full context",
-            intro: isVague && this.rephraseCount === 3
-              ? "I couldn't identify a matching resolution or known bug. I've prepared a support ticket with what we have so far, but please add a description or attachment to help us diagnose it."
-              : "I don't have a confident fix in the knowledge base, so I won't guess. I've packaged everything engineering needs and flagged it " + finalPriority + ".",
+            headline: isVagueFallback
+              ? 'We need a bit more context to route this'
+              : 'This looks like a new issue — escalating it with full context',
+            intro: isVagueFallback
+              ? "I couldn't identify a matching resolution. I've prepared a support ticket — please add a screenshot or reproduction steps to help us diagnose it faster."
+              : `I don't have a confident fix in the knowledge base, so I won't guess. I've packaged everything engineering needs and flagged it ${finalPriority}.`,
             captured: [
               { k: 'Reported issue', v: msg.length > 90 ? msg.slice(0, 90) + '…' : msg },
               { k: 'Product area', v: area },
               { k: 'Priority', v: finalPriority },
-              { k: 'KB match', v: kbId ? (kbId + ' (' + finalScore + '%)') : 'none above threshold' },
-            ]
+              { k: 'KB match', v: kbId ? `${kbId} (${finalScore}%)` : 'none above threshold' },
+            ],
           };
         } else if (finalType === 2) {
-          const parsed = parseResolutionText(aiStepText, 'This is a known issue');
-          aiStep = {
-            from: 'ai',
-            kind: 'known',
-            headline: parsed.headline || 'This is a known issue we\'re already fixing',
-            intro: parsed.intro || 'Our team has a fix in progress.',
-            workaround: parsed.steps
-          };
+          // Use KB entry data directly (offline) or parse the LLM response (online)
+          const headline = localResult ? localResult.headline : parseResolutionText(response.answer || '', 'Known issue').headline;
+          const intro    = localResult ? localResult.intro    : parseResolutionText(response.answer || '', 'Known issue').intro;
+          const workaround = localResult ? localResult.steps  : parseResolutionText(response.answer || '', 'Known issue').steps;
+          aiStep = { from: 'ai', kind: 'known', headline, intro, workaround };
           this.SCENARIOS['__custom'].jira = kbId ? 'CS-' + kbId.slice(-3) : 'CS-4821';
-          this.SCENARIOS['__custom'].eta = 'Fix in progress — ~' + (3 + (kbId ? kbId.charCodeAt(kbId.length-1) % 5 : 2)) + ' days';
+          this.SCENARIOS['__custom'].eta = 'Fix in progress — ~' + (3 + (kbId ? kbId.charCodeAt(kbId.length - 1) % 5 : 2)) + ' days';
         } else {
-          const parsed = parseResolutionText(aiStepText, 'Here\'s how to resolve this');
-          aiStep = {
-            from: 'ai',
-            kind: 'resolution',
-            headline: parsed.headline || 'Here\'s how to resolve this',
-            intro: parsed.intro || 'Follow the steps below to confirm the issue is resolved.',
-            resolutionSteps: parsed.steps
-          };
+          const headline       = localResult ? localResult.headline : parseResolutionText(response.answer || '', "Here's how to resolve this").headline;
+          const intro          = localResult ? localResult.intro    : parseResolutionText(response.answer || '', "Here's how to resolve this").intro;
+          const resolutionSteps = localResult ? localResult.steps   : parseResolutionText(response.answer || '', "Here's how to resolve this").steps;
+          aiStep = { from: 'ai', kind: 'resolution', headline, intro, resolutionSteps };
         }
 
         if (thinkIdx !== -1) {
@@ -370,7 +323,6 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         this.SCENARIOS['__custom'].priority = finalPriority;
         this.SCENARIOS['__custom'].kbId = kbId;
         this.SCENARIOS['__custom'].evidence = evidence;
-
         this.n = stepsList.length;
         this.halted = false;
 
@@ -381,26 +333,20 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
           this.formDesc = msg;
           this.formAttachment = attachment || null;
           this.formSubmitted = false;
-
           stepsList.push({ from: 'ai', kind: 'ticket-form' });
           this.n = stepsList.length;
           this.halted = true;
         } else if (finalType === 2) {
           stepsList.push({
-            from: 'ai',
-            kind: 'confirm',
+            from: 'ai', kind: 'confirm',
             text: 'That workaround should get you unblocked. Want me to notify you when the permanent fix ships?',
             positive: 'Yes, notify me',
-            negative: "Workaround didn't help"
+            negative: "Workaround didn't help",
           });
           this.n = stepsList.length;
           this.halted = true;
         } else {
-          stepsList.push({
-            from: 'ai',
-            kind: 'confirm',
-            text: 'Did this resolve your issue?'
-          });
+          stepsList.push({ from: 'ai', kind: 'confirm', text: 'Did this resolve your issue?' });
           this.n = stepsList.length;
           this.halted = true;
         }
@@ -730,27 +676,57 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   }
 }
 
-function getSimulatedAgentReply(userMessage: string): string {
+/**
+ * Simulate a human agent reply that is aware of the conversation history.
+ * Previously this was pure keyword-matching on the latest message with no
+ * context. Now it checks what the AI already tried so Maya's replies
+ * don't repeat suggestions or act unaware of prior turns.
+ */
+function getSimulatedAgentReply(userMessage: string, history: ScenarioStep[]): string {
   const msg = userMessage.toLowerCase();
+
+  // What has the AI already attempted in this conversation?
+  const aiAlreadySentFix = history.some(s => s.kind === 'resolution' || s.kind === 'known');
+  const aiEscalated      = history.some(s => s.kind === 'novel' || s.kind === 'status');
+  const priorWorkaround  = history.find(s => s.kind === 'known');
+  const workaroundTitle  = priorWorkaround?.headline || 'that workaround';
+
+  // User confirms fix worked
   if (msg.includes('thank') || msg.includes('awesome') || msg.includes('great') || msg.includes('perfect')) {
-    return "You're very welcome! I'm happy I could help. Let me know if there's anything else I can assist with today.";
+    return "You're very welcome! Glad we got that sorted. I'll mark this ticket resolved — feel free to reach out any time.";
   }
-  if (msg.includes('work') || msg.includes('fixed') || msg.includes('resolved') || msg.includes('working')) {
-    return "Awesome, glad that worked for you! I will mark this ticket as resolved on our end. Have a wonderful day!";
+  if (aiAlreadySentFix && (msg.includes('work') || msg.includes('fixed') || msg.includes('resolved') || msg.includes('working'))) {
+    return `Great to hear! I'll mark the ticket resolved on our end. The resolution has been logged so we can automate this for future customers.`;
   }
-  if (msg.includes('error') || msg.includes('broken') || msg.includes('fail') || msg.includes('sync') || msg.includes('bug')) {
-    return "I see the issue. I am looking into our backend database logs right now to see why the sync failed. One moment, please.";
+
+  // User says the AI's fix didn't work
+  if (aiAlreadySentFix && (msg.includes("didn't") || msg.includes("not work") || msg.includes("still") || msg.includes("same issue"))) {
+    return `Sorry "${workaroundTitle}" didn't do it. I'm escalating this to our senior engineering team right now with the full conversation attached — they'll follow up within the hour and won't need you to repeat anything.`;
   }
-  if (msg.includes('how long') || msg.includes('eta') || msg.includes('when')) {
-    return "Our engineering team usually resolves these escalations within a few hours. I will personally monitor this and follow up with you as soon as I have an update!";
+
+  // User asks about timing
+  if (msg.includes('how long') || msg.includes('eta') || msg.includes('when') || msg.includes('update')) {
+    if (aiEscalated) {
+      return "Our engineering team has been notified with P1 priority. You should hear back within the hour. I'll personally follow up if you don't.";
+    }
+    return "Our standard SLA for this type of issue is 4 hours, but I'm watching this one directly and will update you as soon as I have news.";
   }
-  
+
+  // User reports an error or ongoing issue
+  if (msg.includes('error') || msg.includes('broken') || msg.includes('fail') || msg.includes('sync') || msg.includes('bug') || msg.includes('still broken')) {
+    if (aiAlreadySentFix) {
+      return "Understood — the automated fix didn't hold. Let me pull your account logs and check if there's a backend configuration issue specific to your environment.";
+    }
+    return "I see the issue. I'm looking into our backend logs right now. One moment — I'll have more information for you shortly.";
+  }
+
+  // Generic fallback pool — varied to avoid repetition
   const replies = [
-    "I'm reviewing the details you've shared. Let me investigate this on my end and see if we can get it cleared up.",
-    "Got it. Let me pull up your account settings to see if there is any misconfiguration on the backend.",
-    "I'm on it. I will check our service status page and verify if we have any active incidents affecting your account.",
-    "Let me check that for you. Could you please confirm if you're seeing this on all browsers, or just one?"
+    "I'm reviewing everything you've shared. Let me dig into this on my end and get back to you with a concrete next step.",
+    "Got it. I'm pulling up your account settings to check for any backend misconfiguration that might explain this.",
+    "On it. I'm cross-checking with our service status and your account history — give me just a moment.",
+    "Let me check that for you. Can you confirm whether this happens on all browsers, or just one specific browser?",
+    "I can see the full context of this conversation so no need to repeat anything. Let me investigate and follow up shortly.",
   ];
-  const randIdx = Math.floor(Math.random() * replies.length);
-  return replies[randIdx];
+  return replies[Math.floor(Math.random() * replies.length)];
 }

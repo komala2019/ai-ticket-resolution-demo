@@ -202,40 +202,72 @@ export interface KbEntry {
   uses: number;
   updated: string;
   flagged?: boolean;
+  /** 'self-service' = user can fix it themselves; 'known-bug' = workaround + eng fix needed. */
+  kind?: 'self-service' | 'known-bug';
+  /** Optional ordered resolution steps shown directly in the chat card. */
+  steps?: string[];
 }
 
 export const KB: KbEntry[] = [
   {
     id: 'KB-001',
     title: 'Booking widget disappears after hero publish',
-    content: 'When a new hero section is published, the booking widget block can revert to Draft visibility. To resolve this, open Content → Homepage → Layout, select the Booking widget block, toggle its settings to Published, and click Publish.',
+    content: 'When a new hero section is published, the booking widget block can revert to Draft visibility. This is a quick self-service fix — no engineering needed.',
     tags: ['booking engine', 'widgets', 'publish'],
     uses: 47,
     updated: '2d ago',
+    kind: 'self-service',
+    steps: [
+      'Open Content → Homepage → Layout editor',
+      "Find the 'Booking widget' block — it shows a grey 'Draft' tag",
+      "Toggle its visibility to 'Published' in the right-hand block settings",
+      "Click 'Publish' in the top-right to push the change live",
+    ],
   },
   {
     id: 'KB-002',
     title: 'Analytics dashboard blank on Chrome 124+',
-    content: 'Chart.js v3 has a known rendering issue on Chrome 124+ due to the offscreen canvas API change. Fix shipped in 3.14. Advise customers to use Firefox or Safari as a temporary workaround.',
+    content: 'Chart.js v3 has a known rendering issue on Chrome 124+ due to the offscreen canvas API change. A permanent fix ships in release 3.14 (~6 days). Use the workaround below to unblock yourself now.',
     tags: ['analytics', 'chrome', 'charts'],
     uses: 37,
     updated: '5d ago',
+    kind: 'known-bug',
+    steps: [
+      'Open the blank dashboard in Chrome',
+      'Hard-refresh with ⌘⇧R (Mac) or Ctrl+Shift+R (Windows)',
+      'Charts will render correctly on the second load',
+      'As an alternative, use Firefox or Safari until release 3.14 ships',
+    ],
   },
   {
     id: 'KB-003',
     title: 'Email campaign sends twice on rapid segment edit',
-    content: 'A known race condition in the segment-save debounce causes a duplicate dispatch when the user edits a segment and triggers send within 800ms. Fixed in 3.14. Workaround: stagger edits 10+ minutes before send.',
+    content: 'A known race condition in the segment-save debounce causes a duplicate dispatch when the user edits a segment and triggers send within 800ms. Fixed in 3.14.',
     tags: ['email campaigns', 'segments', 'duplicate send'],
     uses: 12,
     updated: '1d ago',
+    kind: 'known-bug',
+    steps: [
+      'Pause or archive the affected automation to prevent further duplicates',
+      'Stagger segment edits 10+ minutes before any scheduled send time',
+      'Notify affected recipients with a follow-up apology if needed',
+      'The permanent fix ships in release 3.14 — tracked under CS-4790',
+    ],
   },
   {
     id: 'KB-004',
     title: 'Invite button greyed out at seat limit',
-    content: 'By design: the invite button disables when the account reaches its licensed seat count. Direct customers to the billing page to add seats, or remove an inactive user to free a slot.',
-    tags: ['account', 'billing', 'invites', 'by design'],
+    content: "By design: the invite button disables when the account reaches its licensed seat count. This is self-service — no bug or engineering fix needed.",
+    tags: ['account', 'billing', 'invites', 'seat limit'],
     uses: 52,
     updated: '12d ago',
+    kind: 'self-service',
+    steps: [
+      'Go to Settings → Team → Billing',
+      "Click 'Add seat' and confirm the billing change (takes effect immediately)",
+      'Alternatively, go to Settings → Team → Members and remove an inactive user to free an existing seat',
+      'The invite button re-enables as soon as a seat is available',
+    ],
   },
 ];
 

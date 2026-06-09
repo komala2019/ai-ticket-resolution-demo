@@ -19,7 +19,7 @@ export class TicketResolutionComponent implements OnInit, OnDestroy {
   private toastTimer: any;
   showNotificationsDropdown = false;
 
-  thresholds: Thresholds = { auto: 90, approve: 75, rewrite: 50 };
+  thresholds: Thresholds = { auto: 90, approve: 70, rewrite: 40 };
 
   ROUTE_META = ROUTE_META;
   private subs: Subscription[] = [];
@@ -124,7 +124,7 @@ export class TicketResolutionComponent implements OnInit, OnDestroy {
   }
 
   resetThresholds() {
-    this.thresholds = { auto: 90, approve: 75, rewrite: 50 };
+    this.thresholds = { auto: 90, approve: 70, rewrite: 40 };
   }
 
   get toastIcon() {

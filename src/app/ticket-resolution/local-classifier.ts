@@ -71,95 +71,67 @@ function detectArea(haystack: string): string | null {
   return bestArea;
 }
 
+/**
+ * Deterministic overlap-based KB scorer.
+ *
+ * Replaces the Naïve Bayes approach, which — with only ~4-10 KB entries —
+ * distributes probability nearly uniformly via softmax so scores always
+ * cluster around 5–15, never reaching the 75/90 auto-resolve thresholds.
+ *
+ * This scorer computes three transparent signals and combines them:
+ *   1. titleMatchFraction  — fraction of the entry's *title* tokens covered by the query
+ *                            (captures how on-point the query is for this article)
+ *   2. entryMatchFraction  — fraction of *query* tokens found anywhere in the entry
+ *                            (captures how much of the user's question is answered)
+ *   3. tagMatchFraction    — fraction of query tokens matching entry tags
+ *                            (product-area signal)
+ *
+ * A query whose tokens perfectly cover a title + content scores 90+.
+ * An unrelated query scores near 0. No magic constants needed.
+ */
 function scoreKb(haystack: string, kb: KbEntry[]): ScoredEntry[] {
   const queryTokens = tokenize(haystack);
   if (queryTokens.size === 0) return [];
-
-  // Build the vocabulary of the active KB
-  const vocabulary = new Set<string>();
-  const classTermCounts: Record<string, Map<string, number>> = {};
-  const classTotalTerms: Record<string, number> = {};
-  const classPriors: Record<string, number> = {};
-
-  let totalUses = 0;
-  for (const entry of kb) {
-    totalUses += (entry.uses || 1);
-  }
-
-  for (const entry of kb) {
-    classPriors[entry.id] = (entry.uses || 1) / totalUses;
-
-    const entryText = (entry.title || '') + ' ' + (entry.content || '') + ' ' + (entry.tags || []).join(' ');
-    const entryTokensList = Array.from(tokenize(entryText));
-    const counts = new Map<string, number>();
-    let total = 0;
-
-    entryTokensList.forEach(token => {
-      vocabulary.add(token);
-      counts.set(token, (counts.get(token) || 0) + 1);
-      total++;
-    });
-
-    classTermCounts[entry.id] = counts;
-    classTotalTerms[entry.id] = total;
-  }
-
-  const V = vocabulary.size || 1;
-  const alpha = 0.5; // Laplace smoothing parameter
-
-  // Calculate log-likelihoods for each class
-  const logLikelihoods: Record<string, number> = {};
-  for (const entry of kb) {
-    let logProb = Math.log(classPriors[entry.id]);
-    const counts = classTermCounts[entry.id];
-    const totalTerms = classTotalTerms[entry.id];
-
-    queryTokens.forEach(token => {
-      const termCount = counts.get(token) || 0;
-      // Laplace smoothing: (count + alpha) / (totalTerms + alpha * V)
-      const pWordGivenClass = (termCount + alpha) / (totalTerms + alpha * V);
-      logProb += Math.log(pWordGivenClass);
-    });
-
-    logLikelihoods[entry.id] = logProb;
-  }
-
-  // Calculate log-likelihood for a virtual General/Noise class
-  // General prior is 0.5, and term probability is uniform (1/V)
-  let generalLogProb = Math.log(0.5);
-  queryTokens.forEach(() => {
-    generalLogProb += Math.log(1 / V);
-  });
-  logLikelihoods['__general'] = generalLogProb;
-
-  // Convert log-likelihoods to probabilities using Softmax normalization
-  const maxLog = Math.max(...Object.values(logLikelihoods));
-  const exps: Record<string, number> = {};
-  let sumExp = 0;
-  for (const [key, value] of Object.entries(logLikelihoods)) {
-    const expVal = Math.exp(value - maxLog);
-    exps[key] = expVal;
-    sumExp += expVal;
-  }
+  const queryArr = Array.from(queryTokens);
 
   const results: ScoredEntry[] = [];
+
   for (const entry of kb) {
-    const posteriorProb = exps[entry.id] / sumExp;
-    // Map probability to 0-100 percentage score scale
-    const score = Math.round(posteriorProb * 100);
-    // Only return matching entries that have a non-trivial score
-    if (score > 0) {
-      results.push({ entry, score });
-    }
+    // Full entry token set (title + content + tags)
+    const entryText = (entry.title || '') + ' ' + (entry.content || '') + ' ' + (entry.tags || []).join(' ');
+    const entryTokens = tokenize(entryText);
+    const titleTokens = tokenize(entry.title || '');
+    const entryTagWords = tagWords(entry.tags || []);
+
+    // 1. How many of the entry's title tokens does the query cover?
+    const titleSize = Math.max(1, titleTokens.size);
+    const matchedInTitle = queryArr.filter(t => titleTokens.has(t)).length;
+    const titleMatchFraction = matchedInTitle / titleSize;
+
+    // 2. How many query tokens appear anywhere in the entry (recall)?
+    const matchedInEntry = queryArr.filter(t => entryTokens.has(t)).length;
+    const entryMatchFraction = matchedInEntry / Math.max(1, queryArr.length);
+
+    // 3. How many query tokens match entry tag words (area signal)?
+    const matchedInTags = queryArr.filter(t => entryTagWords.has(t)).length;
+    const tagMatchFraction = matchedInTags / Math.max(1, queryArr.length);
+
+    // Weighted combination: title precision is the strongest discriminator.
+    const rawScore = titleMatchFraction * 45 + entryMatchFraction * 45 + tagMatchFraction * 10;
+    const score = Math.round(Math.min(100, rawScore));
+
+    if (score > 0) results.push({ entry, score });
   }
 
   return results.sort((a, b) => b.score - a.score);
 }
 
 function mentionsKnownBug(e: KbEntry): boolean {
-  if (e.id && e.id.startsWith('KB-Cust-')) {
-    return false;
-  }
+  // Structured kind field takes precedence over content heuristics.
+  if (e.kind === 'known-bug') return true;
+  if (e.kind === 'self-service') return false;
+  // User-created KB articles are assumed self-service unless tagged otherwise.
+  if (e.id && e.id.startsWith('KB-Cust-')) return false;
   const c = (e.content || '').toLowerCase();
   return c.includes('known') || c.includes('bug') || c.includes('fix shipped') ||
     c.includes('workaround') || (e.tags || []).some(t => t.includes('bug'));
@@ -210,17 +182,22 @@ export function classifyIssue(message: string, kb: KbEntry[], thresholds: Thresh
 
   const looksNovel = NOVEL_SIGNALS.some(s => haystack.includes(s));
   let confidence = bestScore;
-  // A "novel" phrasing only dents confidence — it no longer hard-caps it,
-  // so a strong KB match still resolves (with a human in the loop) instead
-  // of always escalating. Weak matches + novel wording still fall to Eng.
+  // Novel phrasing dents confidence (but doesn't hard-cap it) so a strong
+  // KB match can still resolve while very weak matches still fall to Eng.
   if (looksNovel) confidence = Math.max(0, confidence - 20);
   confidence = Math.max(0, Math.min(100, confidence));
 
   const route = routeFor(confidence, t);
 
+  // Self-service entries (user can fix it themselves) always get Type 3 once
+  // they clear the rewrite threshold — even if confidence is below auto — because
+  // the resolution path is a configuration change, not an engineering fix.
+  const isSelfService = best ? best.entry.kind === 'self-service' : false;
+  const hasBug = best ? mentionsKnownBug(best.entry) : false;
+
   let type: number;
   if (looksNovel || !best || confidence < t.rewrite) type = 1;
-  else if (confidence >= t.auto && !mentionsKnownBug(best.entry)) type = 3;
+  else if ((confidence >= t.auto || isSelfService) && !hasBug) type = 3;
   else type = 2;
 
   const priority = looksNovel || haystack.includes('critical') || haystack.includes('lost')
@@ -239,13 +216,17 @@ export function classifyIssue(message: string, kb: KbEntry[], thresholds: Thresh
     escalated = false;
     headline = best ? best.entry.title : 'Here\'s how to resolve this';
     intro = best ? best.entry.content : 'Try the steps below.';
+    // Prefer structured steps from the KB entry; fall back to prose-derived steps.
     steps = best
-      ? [best.entry.content, type === 2
-        ? 'Apply the workaround above; the permanent fix is tracked and on its way.'
-        : 'Save your changes and refresh to confirm the issue is resolved.']
+      ? (best.entry.steps && best.entry.steps.length > 0
+          ? best.entry.steps
+          : [best.entry.content,
+             type === 2
+               ? 'Apply the workaround above; the permanent fix is tracked and on its way.'
+               : 'Save your changes and refresh to confirm the issue is resolved.'])
       : ['Reproduce the issue and note the exact error message.',
-        'Check the relevant settings for the affected feature.',
-        'If it persists, reply here and we\'ll take another look.'];
+         'Check the relevant settings for the affected feature.',
+         'If it persists, reply here and we\'ll take another look.'];
   }
 
   return { type, confidence, route, productArea: area, priority, headline, intro, steps, evidence, escalated, bestKb: best ? best.entry : null };
