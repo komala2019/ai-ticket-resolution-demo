@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { Thresholds } from '../ticket-data';
+import { Thresholds, DEFAULT_THRESHOLDS } from '../ticket-data';
 import { GOLDEN_SET, GoldenCase } from '../golden-set';
 import { classifyIssue } from '../local-classifier';
 import { DemoStateService } from '../demo-state.service';
@@ -65,7 +65,7 @@ export class GoldenComponent {
   }
 
   get rows(): GoldenRow[] {
-    const t = this.thresholds || { auto: 90, approve: 75, rewrite: 50 };
+    const t = this.thresholds || DEFAULT_THRESHOLDS;
     const all = [...GOLDEN_SET, ...this.customCases];
     return all.map(c => {
       const r = classifyIssue(c.prompt, this.demo.kb, t);

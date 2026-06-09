@@ -8,7 +8,7 @@
 //
 // NOTE: confidence here is an explainable heuristic, not a learned probability.
 
-import { KbEntry, Thresholds, routeFor } from './ticket-data';
+import { KbEntry, Thresholds, routeFor, DEFAULT_THRESHOLDS } from './ticket-data';
 import { Scenario, ScenarioStep } from './ticket-data';
 
 const AREA_KEYWORDS: Record<string, string[]> = {
@@ -19,10 +19,20 @@ const AREA_KEYWORDS: Record<string, string[]> = {
   'Account': ['account', 'invite', 'seat', 'billing', 'login', 'password', 'user', 'permission'],
 };
 
-const NOVEL_SIGNALS = [
-  'stopped working after', 'after your update', 'after the upgrade', 'lost',
-  'business-critical', 'broke', 'no longer', 'suddenly', 'since the latest',
+const NOVEL_SIGNALS: { phrase: string; weight: number }[] = [
+  { phrase: 'stopped working after', weight: 14 },
+  { phrase: 'after your update',     weight: 13 },
+  { phrase: 'after the upgrade',     weight: 13 },
+  { phrase: 'since the latest',      weight: 12 },
+  { phrase: 'business-critical',     weight: 11 },
+  { phrase: 'no longer',             weight: 10 },
+  { phrase: 'broke',                 weight: 10 },
+  { phrase: 'suddenly',              weight:  8 },
+  { phrase: 'lost',                  weight:  7 },
 ];
+
+/** Scoring weights for the three KB match signals. Exported for tuning and tests. */
+export const KB_SCORE_WEIGHTS = { title: 45, entry: 45, tags: 10 } as const;
 
 /** Single source of truth for bug/symptom signal words — used in isBugIntent and isVagueQuery. */
 export const BUG_SYMPTOM_KEYWORDS = [
@@ -197,7 +207,7 @@ function scoreKb(haystack: string, kb: KbEntry[]): ScoredEntry[] {
     const tagMatchFraction = matchedInTags / Math.max(1, queryArr.length);
 
     // Weighted combination: title precision is the strongest discriminator.
-    const rawScore = titleMatchFraction * 45 + entryMatchFraction * 45 + tagMatchFraction * 10;
+    const rawScore = titleMatchFraction * KB_SCORE_WEIGHTS.title + entryMatchFraction * KB_SCORE_WEIGHTS.entry + tagMatchFraction * KB_SCORE_WEIGHTS.tags;
     const score = Math.round(Math.min(100, rawScore));
 
     if (score > 0) results.push({ entry, score });
@@ -229,7 +239,8 @@ export function isBugIntent(message: string, kb: KbEntry[], thresholds?: Thresho
   for (const kws of Object.values(areaKws)) {
     if (kws.some(k => msg.includes(k))) return true;
   }
-  if ([...NOVEL_SIGNALS, ...BUG_SYMPTOM_KEYWORDS].some(bk => msg.includes(bk))) return true;
+  if (NOVEL_SIGNALS.some(s => msg.includes(s.phrase))) return true;
+  if (BUG_SYMPTOM_KEYWORDS.some(bk => msg.includes(bk))) return true;
   return false;
 }
 
@@ -248,7 +259,7 @@ export interface LocalClassifyResult {
 }
 
 export function classifyIssue(message: string, kb: KbEntry[], thresholds: Thresholds): LocalClassifyResult {
-  const t = thresholds || { auto: 90, approve: 75, rewrite: 50 };
+  const t = thresholds || DEFAULT_THRESHOLDS;
   const msg = (message || '').trim();
   const haystack = msg.toLowerCase();
 
@@ -261,9 +272,9 @@ export function classifyIssue(message: string, kb: KbEntry[], thresholds: Thresh
   // One signal: –9 pts. Two: –18. Three+: capped at –35.
   // This avoids over-penalising messages that merely mention "after the update"
   // while still hard-damping messages saturated with regression language.
-  const firedNovelSignals = NOVEL_SIGNALS.filter(s => haystack.includes(s));
+  const firedNovelSignals = NOVEL_SIGNALS.filter(s => haystack.includes(s.phrase));
   const looksNovel = firedNovelSignals.length > 0;
-  const novelPenalty = Math.min(35, firedNovelSignals.length * 9);
+  const novelPenalty = Math.min(35, firedNovelSignals.reduce((acc, s) => acc + s.weight, 0));
   let confidence = Math.max(0, Math.min(100, bestScore - novelPenalty));
 
   const route = routeFor(confidence, t);
@@ -282,7 +293,8 @@ export function classifyIssue(message: string, kb: KbEntry[], thresholds: Thresh
   const urgencyScore = computeUrgencyScore(haystack, looksNovel, type);
   const priority = urgencyToPriority(urgencyScore);
 
-  const evidence = scored.slice(0, 2).map(s => ({ t: s.entry.id + ' · ' + s.entry.title, m: s.score }));
+  const evidenceK = confidence >= t.auto ? 1 : confidence >= t.approve ? 2 : 3;
+  const evidence = scored.slice(0, evidenceK).map(s => ({ t: s.entry.id + ' · ' + s.entry.title, m: s.score }));
 
   let headline: string, intro: string, steps: string[], escalated: boolean;
   if (type === 1) {

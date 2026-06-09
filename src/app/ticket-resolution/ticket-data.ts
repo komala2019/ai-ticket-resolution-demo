@@ -28,8 +28,10 @@ export interface TypeMeta {
   desc: string;
 }
 
+export const DEFAULT_THRESHOLDS: Thresholds = { auto: 90, approve: 75, rewrite: 50 };
+
 export function routeFor(score: number, thresholds: Thresholds): RouteKey {
-  const t = thresholds || { auto: 90, approve: 75, rewrite: 50 };
+  const t = thresholds || DEFAULT_THRESHOLDS;
   if (score >= t.auto)    return 'auto';
   if (score >= t.approve) return 'approve';
   if (score >= t.rewrite) return 'rewrite';

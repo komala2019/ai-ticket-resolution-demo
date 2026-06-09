@@ -2,10 +2,13 @@ import { Component, Input, OnChanges, OnDestroy, ViewChild, ElementRef } from '@
 import { Subscription } from 'rxjs';
 import { SCENARIOS, SCENARIO_ORDER, TYPE_META, routeFor, Thresholds, ScenarioStep, Scenario, QueueTicket } from '../ticket-data';
 import { TicketResolutionApiService } from '../ticket-resolution-api.service';
-import { buildDynamicScenario, classifyIssue, isBugIntent, isVagueQuery, parseResolutionText, LocalClassifyResult } from '../local-classifier';
+import { buildDynamicScenario, classifyIssue, isBugIntent, isVagueQuery, parseResolutionText, LocalClassifyResult, BUG_SYMPTOM_KEYWORDS } from '../local-classifier';
 import { DemoStateService } from '../demo-state.service';
 
 type OutcomeKind = 'fixed' | 'notify' | 'failed' | null;
+
+const SLA_BY_PRIORITY: Record<string, string> = { P1: '1-hour', P2: '4-hour', P3: '24-hour' };
+const AGENT_EXTRA_SIGNALS = ['sync', 'still broken'];
 
 @Component({
   selector: 'app-tr-customer-chat',
@@ -25,6 +28,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
 
   sid = 'custom';
   rephraseCount = 0;
+  lastConfidence = 0;
   n = 0;
   halted = false;
   outcome: OutcomeKind = null;
@@ -143,6 +147,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
 
       if (intentChanged) {
         this.rephraseCount = 0;
+        this.lastConfidence = 0;
       }
     }
 
@@ -219,14 +224,16 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
           const topHit = response.context[0];
           kbId = topHit.id;
           if (topHit.tags && topHit.tags.length > 0) area = topHit.tags[0];
-          evidence = response.context.slice(0, 2).map((r: any) => ({
+          const contextK = score >= this.thresholds.auto ? 1 : score >= this.thresholds.approve ? 2 : 3;
+          evidence = response.context.slice(0, contextK).map((r: any) => ({
             t: `${r.id} · ${r.title}`,
             m: Math.round(r.score * 100),
           }));
         }
       }
 
-      const priority = type === 1 ? 'P1' : (type === 2 ? 'P2' : 'P3');
+      const priority = (isOffline && localResult) ? localResult.priority
+        : (type === 1 ? 'P1' : (type === 2 ? 'P2' : 'P3'));
 
       // ── Branch: non-bug chit-chat ──────────────────────────────────────────
       if (!isBug) {
@@ -244,8 +251,11 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         this.n = stepsList.length;
         this.halted = false;
 
-      // ── Branch: vague bug — ask for more detail (up to 2 rounds) ──────────
-      } else if (isVague && this.rephraseCount < 2) {
+      // ── Branch: vague bug — ask for more detail ────────────────────────────
+      // Allow a 3rd round if confidence rose since the last rephrase (user's
+      // clarification added real signal); otherwise cap at 2 rounds.
+      } else if (isVague && this.rephraseCount < (score > this.lastConfidence && this.rephraseCount === 2 ? 3 : 2)) {
+        this.lastConfidence = score;
         this.rephraseCount++;
         const clarifyText = this.rephraseCount === 1
           ? `I can see this is related to the **${area}** area, but I need a bit more detail to find the right fix. What exactly do you see — is something missing, showing an error, or not loading?`
@@ -263,22 +273,24 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         let finalScore = score;
         let finalRoute = route;
 
-        if (isVague && this.rephraseCount === 2) {
-          // User couldn't clarify after 2 attempts — open a ticket
-          this.rephraseCount = 3;
+        const maxRephrase = score > this.lastConfidence && this.rephraseCount === 2 ? 3 : 2;
+        if (isVague && this.rephraseCount >= maxRephrase) {
+          // User couldn't clarify after allowed attempts — open a ticket.
+          // Penalty scales with how many rounds were wasted.
+          this.rephraseCount = maxRephrase + 1;
           finalType = 1;
-          finalPriority = 'P3';
-          finalScore = Math.min(score, this.thresholds.rewrite - 5);
+          finalScore = Math.max(0, score - (this.rephraseCount * 8));
           finalRoute = 'eng';
         } else {
           this.rephraseCount = 0;
+          this.lastConfidence = 0;
         }
 
         const classifyStep: ScenarioStep = { from: 'ai', kind: 'classify' };
         let aiStep: ScenarioStep;
 
         if (finalType === 1) {
-          const isVagueFallback = isVague && this.rephraseCount === 3;
+          const isVagueFallback = isVague && this.rephraseCount > maxRephrase;
           aiStep = {
             from: 'ai',
             kind: 'novel',
@@ -420,7 +432,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       const statusStep: ScenarioStep = {
         from: 'ai',
         kind: 'status',
-        text: `I've opened ticket ${ticketId} and routed it to the ${this.formArea} team with a ${this.formPriority === 'P1' ? '1-hour' : this.formPriority === 'P2' ? '4-hour' : '24-hour'} SLA. A support specialist will follow up shortly.`
+        text: `I've opened ticket ${ticketId} and routed it to the ${this.formArea} team with a ${SLA_BY_PRIORITY[this.formPriority] ?? '24-hour'} SLA. A support specialist will follow up shortly.`
       };
       dyn.steps = [...currentVisible, statusStep];
       dyn.type = result.type;
@@ -526,6 +538,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       this.outcome = null;
       this.customTicketId = null;
       this.rephraseCount = 0;
+      this.lastConfidence = 0;
       this.formSubject = '';
       this.formArea = '';
       this.formPriority = 'P3';
@@ -543,6 +556,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     this.outcome = null;
     this.customTicketId = null;
     this.rephraseCount = 0;
+    this.lastConfidence = 0;
     this.formSubject = '';
     this.formArea = '';
     this.formPriority = 'P3';
@@ -715,7 +729,7 @@ function getSimulatedAgentReply(userMessage: string, history: ScenarioStep[]): s
   }
 
   // User reports an error or ongoing issue
-  if (msg.includes('error') || msg.includes('broken') || msg.includes('fail') || msg.includes('sync') || msg.includes('bug') || msg.includes('still broken')) {
+  if ([...BUG_SYMPTOM_KEYWORDS, ...AGENT_EXTRA_SIGNALS].some(k => msg.includes(k))) {
     if (aiAlreadySentFix) {
       return "Understood — the automated fix didn't hold. Let me pull your account logs and check if there's a backend configuration issue specific to your environment.";
     }
