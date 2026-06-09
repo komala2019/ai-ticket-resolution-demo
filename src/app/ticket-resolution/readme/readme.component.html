@@ -7,7 +7,7 @@
     </span>
     <h1 class="doc-h1">AI Ticket Auto-Resolution</h1>
     <p class="doc-lede">
-      An interactive demo of a human-in-the-loop support workflow. The shell switches between the customer experience, the CS console, and the in-app docs while the shared state service keeps everything in sync.
+      An end-to-end human-in-the-loop support demo. The shell switches between Customer chat, CS Console, and docs. A shared DemoStateService keeps KB, queue, notifications, and analytics in sync across all views.
     </p>
   </header>
 
@@ -44,10 +44,17 @@
   <section class="doc-card">
     <h2 class="doc-h2">Core Concept</h2>
     <p class="doc-p" style="margin-bottom: 16px;">
-      The app follows a simple loop: describe the issue, clarify the context, classify the ticket, route it by confidence, resolve it, and confirm the outcome.
+      The app follows a simple loop: surface known issues upfront, let the customer describe the issue, clarify the context, classify the ticket, route it by confidence, resolve it, and confirm the outcome.
     </p>
 
     <div class="flow-grid">
+      <div class="flow-step">
+        <span class="flow-num">0</span>
+        <div>
+          <div class="flow-title">Known Issues</div>
+          <div class="flow-text">Before the customer types anything, active known bugs are displayed upfront as an accordion — one click shows the workaround.</div>
+        </div>
+      </div>
       <div class="flow-step">
         <span class="flow-num">1</span>
         <div>
@@ -96,6 +103,14 @@
   <section>
     <h2 class="doc-h2 section-title">Resolution Paths</h2>
     <div class="cap-grid">
+      <div class="cap-card" style="border-top: 4px solid var(--warning-600);">
+        <div class="cap-head">
+          <span class="cap-type" style="background: var(--warning-50); color: var(--warning-700);">Known Issue upfront</span>
+          <span class="cap-name">Zero-typing self-service</span>
+        </div>
+        <p class="cap-desc">The customer clicks a known bug in the upfront panel and is taken straight to the workaround card. No message needed — the KB match is instant.</p>
+      </div>
+
       <div class="cap-card" style="border-top: 4px solid var(--success-600);">
         <div class="cap-head">
           <span class="cap-type" style="background: var(--success-50); color: var(--success-700);">Type 3 - Happy Path</span>
@@ -109,7 +124,7 @@
           <span class="cap-type" style="background: var(--primary-50); color: var(--primary-700);">Type 2 - Agent Assist</span>
           <span class="cap-name">CS approval queue</span>
         </div>
-        <p class="cap-desc">The issue is familiar but not fully solved. A CS rep reviews the draft, edits it if needed, and approves the response before sending.</p>
+        <p class="cap-desc">A known bug or partial match surfaces a workaround plus estimated resolution time. A CS draft lands in the approval queue for review before sending.</p>
       </div>
 
       <div class="cap-card" style="border-top: 4px solid #7A5AF8;">
@@ -117,7 +132,52 @@
           <span class="cap-type" style="background: #F4EBFF; color: #7A5AF8;">Type 1 - Escalation</span>
           <span class="cap-name">Engineering queue</span>
         </div>
-        <p class="cap-desc">Novel issues are packaged with reproduction details, environment data, and blast-radius context so engineering can act without re-asking for basics.</p>
+        <p class="cap-desc">Novel issues are packaged with reproduction steps, environment data, and blast-radius context so engineering can act without re-asking for basics.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="doc-card">
+    <h2 class="doc-h2">Key Features</h2>
+    <p class="doc-p" style="margin-bottom: 16px;">
+      Each feature below is live in this build and observable during a normal demo walkthrough.
+    </p>
+    <div class="flow-grid">
+      <div class="flow-step">
+        <div>
+          <div class="flow-title">Known issues upfront panel</div>
+          <div class="flow-text">Zero-typing self-service for KB known-bug entries. Active bugs appear as an accordion before the customer types a single word.</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div>
+          <div class="flow-title">Multi-level chip drill-down</div>
+          <div class="flow-text">Area chips expand to sub-chips which feed into classification — no clarification loops. Hard cap at two rounds.</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div>
+          <div class="flow-title">Markdown rendering in AI messages</div>
+          <div class="flow-text">Bold, italic, and bullet syntax in AI replies is rendered safely in chat bubbles via MarkdownPipe and DomSanitizer.</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div>
+          <div class="flow-title">Human / agent handoff</div>
+          <div class="flow-text">The "Human" button connects to Maya (support specialist), who replies contextually. Auto follow-up fires after placeholder replies.</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div>
+          <div class="flow-title">State persistence across tabs</div>
+          <div class="flow-text">Chat uses <code>[hidden]</code> not <code>*ngIf</code> so Angular never destroys the component. Conversation state survives view switches to the CS console and back.</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div>
+          <div class="flow-title">Live analytics + notifications</div>
+          <div class="flow-text">Resolve, reopen, and escalate actions update KPI cards and the topbar bell instantly. Each notification can be dismissed individually.</div>
+        </div>
       </div>
     </div>
   </section>
@@ -155,22 +215,36 @@
       <div class="flow-step">
         <span class="flow-num">1</span>
         <div>
-          <div class="flow-title">Try the customer flow</div>
-          <div class="flow-text">Open Customer view, choose "Booking widget missing", and walk through the fix with the assistant.</div>
+          <div class="flow-title">Check the known issues panel</div>
+          <div class="flow-text">Open Customer view and click "Analytics dashboard blank on Chrome 124+" in the known issues accordion. Hit the workaround button to see zero-typing self-service.</div>
         </div>
       </div>
       <div class="flow-step">
         <span class="flow-num">2</span>
         <div>
-          <div class="flow-title">Trigger a reopen</div>
-          <div class="flow-text">Run the same scenario again and click Thumbs Down to see how the KB gets flagged and the analytics update.</div>
+          <div class="flow-title">Try the customer flow</div>
+          <div class="flow-text">Type "booking widget disappeared" and follow the assistant through the fix steps.</div>
         </div>
       </div>
       <div class="flow-step">
         <span class="flow-num">3</span>
         <div>
+          <div class="flow-title">Trigger a reopen</div>
+          <div class="flow-text">Run the same scenario again and click "Still broken" to see KB flagging and the accuracy metric drop live.</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">4</span>
+        <div>
+          <div class="flow-title">Use sub-chips</div>
+          <div class="flow-text">Type "Analytics" or click "Wrong data shown" to see the area chip expand into sub-chips and feed into a classification — the two-level drill-down in action.</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">5</span>
+        <div>
           <div class="flow-title">Review the console</div>
-          <div class="flow-text">Switch to the CS console and inspect the Approval Queue, Knowledge Base, Analytics, and Golden Set tabs.</div>
+          <div class="flow-text">Switch to CS console and inspect the Approval Queue, KB Manager, Analytics (hover card titles for formula tooltips), and Golden Set regression suite.</div>
         </div>
       </div>
     </div>
