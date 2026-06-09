@@ -134,3 +134,13 @@
   transition: background .14s;
   &:hover { background: #6941C6; }
 }
+
+@media (max-width: 480px) {
+  .esc-dialog {
+    padding: 16px;
+    border-radius: 12px;
+  }
+  .team-grid {
+    grid-template-columns: 1fr;
+  }
+}

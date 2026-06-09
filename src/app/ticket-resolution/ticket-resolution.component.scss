@@ -480,6 +480,7 @@
   right: 0;
   top: 44px;
   width: 320px;
+  max-width: calc(100vw - 16px);
   background: var(--tr-surface, #fff);
   border: 1px solid var(--gray-200);
   border-radius: 12px;

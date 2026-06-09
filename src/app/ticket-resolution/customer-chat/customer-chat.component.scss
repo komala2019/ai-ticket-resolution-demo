@@ -305,18 +305,19 @@
   }
 }
 .send-icon {
-  width: 32px; height: 32px;
+  width: 36px; height: 36px;
   border-radius: 8px;
   background: var(--gray-200);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--gray-400);
+  flex-shrink: 0;
 }
 
 /* Attach + human-assist controls */
 .attach-btn {
-  width: 32px; height: 32px;
+  width: 36px; height: 36px;
   border-radius: 8px;
   display: inline-flex;
   align-items: center;
@@ -374,7 +375,7 @@
   flex-direction: column;
   gap: 4px;
   img, video {
-    max-width: 260px;
+    max-width: min(260px, 100%);
     max-height: 180px;
     border-radius: 8px;
     border: 1px solid var(--gray-200);
@@ -483,6 +484,29 @@
   }
   .human-btn {
     padding: 7px;
+  }
+  /* Minimum 40×40 touch targets on mobile */
+  .attach-btn, .human-btn {
+    width: 40px; height: 40px;
+  }
+  .send-icon {
+    width: 40px; height: 40px;
+  }
+}
+
+@media (max-width: 375px) {
+  .chat-messages {
+    padding: 12px;
+    gap: 10px;
+  }
+  .chat-footer {
+    padding: 10px;
+  }
+  .bubble {
+    font-size: 14px;
+  }
+  .starter-chips-row {
+    padding-left: 8px;
   }
 }
 
