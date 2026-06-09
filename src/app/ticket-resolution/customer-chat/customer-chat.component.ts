@@ -297,7 +297,11 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         .map(s => s.text || '')
         .slice(-4, -1);  // exclude the last entry (current msg, appended below as `msg`)
       const cumulativeMsg = [...priorUserTexts, msg].join(' ').trim();
-      const isVague = isVagueQuery(cumulativeMsg);
+      // When the user is answering a chip drill-down (rephraseCount >= 2),
+      // classify on just the current message so the original generic starter
+      // chip ("Booking engine issue") doesn't dilute the specific sub-chip signal.
+      const classifyMsg = (this.rephraseCount >= 2 && chipLabel) ? msg : cumulativeMsg;
+      const isVague = isVagueQuery(classifyMsg);
 
       // ── Run classification ONCE ────────────────────────────────────────────
       let score: number;
@@ -309,7 +313,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       let localResult: LocalClassifyResult | null = null;
 
       if (isOffline) {
-        localResult = classifyIssue(cumulativeMsg, this.demo.kb, this.thresholds, this.excludedKbIds);
+        localResult = classifyIssue(classifyMsg, this.demo.kb, this.thresholds, this.excludedKbIds);
         score = localResult.confidence;
         route = localResult.route;
         type = localResult.type;
@@ -339,6 +343,29 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
 
       const priority = (isOffline && localResult) ? localResult.priority
         : (type === 1 ? 'P1' : (type === 2 ? 'P2' : 'P3'));
+
+      // ── Chip drill-down gate ──────────────────────────────────────────────
+      // rephraseCount=1 means the user just picked a level-1 area sub-chip.
+      // If that chip has a deeper CHIP_FOLLOW_UPS entry, ask it now instead
+      // of classifying — this is the context-redirect step, not accumulation.
+      if (chipLabel && CHIP_FOLLOW_UPS[chipLabel] && this.rephraseCount === 1) {
+        const chipFollow = CHIP_FOLLOW_UPS[chipLabel];
+        this.activeSubChips = chipFollow.subChips;
+        this.rephraseCount = 2;
+        this.lastConfidence = score;
+        const deepenStep: ScenarioStep = { from: 'ai', text: chipFollow.question };
+        if (thinkIdx !== -1) stepsList[thinkIdx] = deepenStep;
+        else stepsList.push(deepenStep);
+        this.SCENARIOS['__custom'].type = type;
+        this.SCENARIOS['__custom'].confidence = score;
+        this.SCENARIOS['__custom'].productArea = area;
+        this.SCENARIOS['__custom'].kbId = kbId;
+        this.SCENARIOS['__custom'].evidence = evidence;
+        this.n = stepsList.length;
+        this.halted = false;
+        setTimeout(() => this.scrollToBottom(), 50);
+        return;
+      }
 
       // ── Branch: non-bug chit-chat ──────────────────────────────────────────
       if (!isBug) {
@@ -415,6 +442,13 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         } else {
           this.rephraseCount = 0;
           this.lastConfidence = 0;
+        }
+
+        // When confidence is below the rewrite threshold the classifier isn't
+        // confident enough to serve a KB resolution — escalate cleanly instead
+        // of showing a "Solvable now" card that may be wrong.
+        if (finalRoute === 'eng' && finalType !== 1) {
+          finalType = 1;
         }
 
         const classifyStep: ScenarioStep = { from: 'ai', kind: 'classify' };
