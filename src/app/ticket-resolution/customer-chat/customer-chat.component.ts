@@ -232,7 +232,10 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     // If the user explicitly rejects the previous answer ("issue is different",
     // "that's not it", etc.), exclude the last matched KB from the next round
     // and ask them to describe their actual issue instead of re-classifying.
-    const isNegation = isNegationQuery(msg);
+    // Skip entirely when the message came from a chip click — chips are guided
+    // selections, not rejections, and phrases like "Export not working" would
+    // incorrectly match the 'not working' negation signal otherwise.
+    const isNegation = !chipLabel && isNegationQuery(msg);
     if (isNegation) {
       const prevKbId = this.SCENARIOS['__custom']?.kbId;
       if (prevKbId) this.excludedKbIds.add(prevKbId);
