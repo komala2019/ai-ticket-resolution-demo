@@ -550,6 +550,37 @@ export function buildDynamicScenario(message: string, kb: KbEntry[], thresholds:
     steps,
   };
 }
+const CHIT_CHAT_EXACT = new Set([
+  'hi', 'hello', 'hey', 'howdy', 'hiya', 'yo', 'sup',
+  'ok', 'okay', 'sure', 'yep', 'yes', 'no', 'nope',
+  'great', 'perfect', 'awesome', 'cool', 'nice', 'wow',
+  'thanks', 'thank you', 'cheers', 'ty', 'thx',
+  'lol', 'haha', 'bye', 'goodbye',
+]);
+
+const CHIT_CHAT_PHRASES = [
+  'good morning', 'good afternoon', 'good evening', 'good night',
+  'how are you', "how's it going", 'how are things', 'how do you do',
+  'thank you so much', 'thanks a lot', 'many thanks',
+  'are you a bot', 'are you human', 'who are you', 'what can you do',
+  "what's your name", 'are you ai', 'are you an ai',
+  'see you later', 'talk later', 'take care', 'talk soon',
+  'never mind', 'forget it', 'just checking', 'testing',
+];
+
+/**
+ * Returns true when the message is conversational/off-topic rather than a
+ * support request — greetings, thanks, pleasantries, or bot-identity questions.
+ * These have already passed the !isBugIntent gate so no need to re-check area keywords.
+ */
+export function isChitChat(message: string): boolean {
+  const msg = (message || '').toLowerCase().trim();
+  if (!msg) return false;
+  if (CHIT_CHAT_EXACT.has(msg)) return true;
+  if (CHIT_CHAT_PHRASES.some(p => msg.includes(p))) return true;
+  return false;
+}
+
 export function isVagueQuery(message: string): boolean {
   const msg = (message || '').toLowerCase().trim();
   const words = msg.split(/\s+/).filter(Boolean);

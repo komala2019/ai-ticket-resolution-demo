@@ -2,7 +2,7 @@ import { Component, Input, OnChanges, OnDestroy, ViewChild, ElementRef } from '@
 import { Subscription } from 'rxjs';
 import { SCENARIOS, TYPE_META, routeFor, Thresholds, ScenarioStep, Scenario, QueueTicket } from '../ticket-data';
 import { TicketResolutionApiService } from '../ticket-resolution-api.service';
-import { classifyIssue, isBugIntent, isVagueQuery, isNegationQuery, parseResolutionText, LocalClassifyResult, BUG_SYMPTOM_KEYWORDS, NOVEL_SIGNALS, hydrateScenario } from '../local-classifier';
+import { classifyIssue, isBugIntent, isVagueQuery, isNegationQuery, isChitChat, parseResolutionText, LocalClassifyResult, BUG_SYMPTOM_KEYWORDS, NOVEL_SIGNALS, hydrateScenario } from '../local-classifier';
 import { DemoStateService } from '../demo-state.service';
 
 type OutcomeKind = 'fixed' | 'notify' | 'failed' | null;
@@ -381,16 +381,20 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
 
       // ── Branch: non-bug chit-chat ──────────────────────────────────────────
       if (!isBug) {
-        // Use a context-aware nudge, not a first-time greeting, since the
-        // conversation has already started when the user reaches this branch.
-        const nudges = [
-          "I want to make sure I find the right fix. Could you describe the specific issue — what you see on screen, which feature it affects, and when it started?",
-          "Tell me a bit more so I can search the knowledge base accurately: what exactly is broken or unexpected, and on which page or feature?",
-          "To find the best match, I need a little more detail: what behavior are you seeing, and what did you expect to happen instead?",
-        ];
-        const aiStepText = isOffline
-          ? nudges[Math.floor(Math.random() * nudges.length)]
-          : (response.answer || 'No reply returned.');
+        let aiStepText: string;
+        if (isOffline && isChitChat(msg)) {
+          aiStepText = "I'm a support assistant, so I'm best at diagnosing technical issues with the platform. For anything outside that — or if you'd just prefer to speak with a person — hit the **Human** button and I'll connect you with the team right away.";
+        } else {
+          // Vague but could be support-related — ask for issue details.
+          const nudges = [
+            "I want to make sure I find the right fix. Could you describe the specific issue — what you see on screen, which feature it affects, and when it started?",
+            "Tell me a bit more so I can search the knowledge base accurately: what exactly is broken or unexpected, and on which page or feature?",
+            "To find the best match, I need a little more detail: what behavior are you seeing, and what did you expect to happen instead?",
+          ];
+          aiStepText = isOffline
+            ? nudges[Math.floor(Math.random() * nudges.length)]
+            : (response.answer || 'No reply returned.');
+        }
         const aiStep: ScenarioStep = { from: 'ai', text: aiStepText };
         if (thinkIdx !== -1) stepsList[thinkIdx] = aiStep;
         else stepsList.push(aiStep);
