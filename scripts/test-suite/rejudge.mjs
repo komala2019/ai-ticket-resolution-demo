@@ -15,9 +15,9 @@ import { SCENARIOS } from './scenarios.mjs';
 import process from 'process';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const MODEL          = 'gemini-2.5-flash';
-const THRESHOLDS     = DEFAULT_THRESHOLDS;
-const DELAY_MS       = 13000;  // 13s between calls → ≤5 req/min on free tier
+const MODEL = 'gemini-2.5-flash';
+const THRESHOLDS = DEFAULT_THRESHOLDS;
+const DELAY_MS = 13000;  // 13s between calls → ≤5 req/min on free tier
 
 if (!GEMINI_API_KEY) {
   console.error('\n  GEMINI_API_KEY not set.\n  Usage:  $env:GEMINI_API_KEY="..."; node scripts/test-suite/rejudge.mjs\n');
@@ -123,7 +123,7 @@ function scoreBar(n) {
 
 async function main() {
   const total = SCENARIOS.length;
-  const eta   = Math.round((total * DELAY_MS) / 1000);
+  const eta = Math.round((total * DELAY_MS) / 1000);
 
   console.log('\n' + '═'.repeat(80));
   console.log(`  Full Re-judge — ${total} scenarios  |  Model: ${MODEL}  |  ETA: ~${eta}s`);
@@ -136,7 +136,7 @@ async function main() {
     process.stdout.write(`  [${i + 1}/${total}] ${scenario.id}  ${scenario.name}... `);
 
     const classifierResult = classifyIssue(scenario.message, KB, THRESHOLDS);
-    const judgeResult      = await judgeWithGemini(scenario, classifierResult);
+    const judgeResult = await judgeWithGemini(scenario, classifierResult);
 
     results.push({ scenario, classifierResult, judgeResult });
 
@@ -184,8 +184,8 @@ async function main() {
   let grandTotal = 0, grandN = 0;
   for (const [cat, jrs] of Object.entries(byCategory)) {
     const scored = jrs.filter(j => j.overallScore != null);
-    const avg    = scored.length > 0 ? (scored.reduce((s, j) => s + j.overallScore, 0) / scored.length).toFixed(1) : 'n/a';
-    const dist   = `✓${jrs.filter(j => j.verdict === 'PASS').length} ~${jrs.filter(j => j.verdict === 'PARTIAL').length} ✗${jrs.filter(j => j.verdict === 'FAIL').length} ?${jrs.filter(j => j.verdict === 'ERROR').length}`;
+    const avg = scored.length > 0 ? (scored.reduce((s, j) => s + j.overallScore, 0) / scored.length).toFixed(1) : 'n/a';
+    const dist = `✓${jrs.filter(j => j.verdict === 'PASS').length} ~${jrs.filter(j => j.verdict === 'PARTIAL').length} ✗${jrs.filter(j => j.verdict === 'FAIL').length} ?${jrs.filter(j => j.verdict === 'ERROR').length}`;
     console.log(`  ${cat.padEnd(26)} ${dist.padEnd(20)} ${avg}/10`);
     scored.forEach(j => { grandTotal += j.overallScore; grandN++; });
   }

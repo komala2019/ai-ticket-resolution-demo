@@ -10,6 +10,15 @@ type OutcomeKind = 'fixed' | 'notify' | 'failed' | null;
 const SLA_BY_PRIORITY: Record<string, string> = { P1: '1-hour', P2: '4-hour', P3: '24-hour' };
 const AGENT_EXTRA_SIGNALS = ['sync', 'still broken'];
 
+/** Area-level sub-chips shown when a generic area starter fires at low confidence (maps to CHIP_FOLLOW_UPS keys). */
+const AREA_SUBCHIPS: Record<string, string[]> = {
+  'Booking engine': ['Widget still missing',  'Rate plan problem',    'Currency at checkout', 'Different page issue'],
+  'Analytics':      ['Charts still blank',    'Wrong data shown',     'Export not working',   'Different dashboard'],
+  'Account':        ["Can't invite teammate", 'Login problem',        'Billing question',     'Permission issue'],
+  'Email campaigns':['Still sending twice',   'Campaign not sending', 'Segment issue'],
+  'Integrations':   ['Sync still failing',    'API error',            'Webhook issue'],
+};
+
 /** Targeted follow-up for each area-specific chip so repeated clicks don't loop on the same generic message. */
 const CHIP_FOLLOW_UPS: Record<string, { question: string; subChips: string[] }> = {
   // Booking engine
@@ -427,6 +436,54 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
           }
           this.lastConfidence = finalScore;
           const deepenStep: ScenarioStep = { from: 'ai', text: deepenText };
+          if (thinkIdx !== -1) stepsList[thinkIdx] = deepenStep;
+          else stepsList.push(deepenStep);
+          this.SCENARIOS['__custom'].type = finalType;
+          this.SCENARIOS['__custom'].confidence = finalScore;
+          this.SCENARIOS['__custom'].productArea = area;
+          this.SCENARIOS['__custom'].kbId = kbId;
+          this.SCENARIOS['__custom'].evidence = evidence;
+          this.n = stepsList.length;
+          this.halted = false;
+          setTimeout(() => this.scrollToBottom(), 50);
+          return;
+        }
+
+        // ── Pre-resolution clarification ─────────────────────────────────────
+        // When the classifier found a KB match (type 2 or 3) but confidence is
+        // below the approve threshold, ask a targeted question before showing
+        // the KB article or workaround steps. Only fires on the first interaction
+        // (rephraseCount === 0), for short messages (< 6 words — typical chip
+        // labels), and never for P1 — urgent issues must not be delayed.
+        const cumulativeWordCount = cumulativeMsg.split(/\s+/).filter(Boolean).length;
+        if (finalType !== 1
+            && finalScore < this.thresholds.approve
+            && this.rephraseCount === 0
+            && finalPriority !== 'P1'
+            && cumulativeWordCount < 6) {
+          const chipFollow = chipLabel ? CHIP_FOLLOW_UPS[chipLabel] : null;
+          let clarifyText: string;
+          if (chipFollow) {
+            this.activeSubChips = chipFollow.subChips;
+            clarifyText = chipFollow.question;
+          } else {
+            const areaChips = AREA_SUBCHIPS[area];
+            if (areaChips) {
+              this.activeSubChips = [...areaChips];
+              const kbTitle = localResult?.bestKb?.title;
+              clarifyText = kbTitle
+                ? `I found something that might match — **${kbTitle}**. Which of these best describes your specific issue?`
+                : `I can see this is in the **${area}** area. Which of these best describes your issue?`;
+            } else {
+              const kbTitle = localResult?.bestKb?.title;
+              clarifyText = kbTitle
+                ? `I found something that might match — **${kbTitle}**. Could you confirm that's your issue, or describe what's happening in more detail?`
+                : `I can see this is in the **${area}** area, but I need a bit more detail to find the right fix.`;
+            }
+          }
+          this.rephraseCount = 1;
+          this.lastConfidence = finalScore;
+          const deepenStep: ScenarioStep = { from: 'ai', text: clarifyText };
           if (thinkIdx !== -1) stepsList[thinkIdx] = deepenStep;
           else stepsList.push(deepenStep);
           this.SCENARIOS['__custom'].type = finalType;
