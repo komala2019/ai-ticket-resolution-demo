@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
-import { KB, KbEntry, METRICS, Metric, QUEUE, QueueTicket } from './ticket-data';
+import { KB, KbEntry, METRICS, Metric, QUEUE, QueueTicket, DEFAULT_THRESHOLDS, Thresholds } from './ticket-data';
+import { hydrateQueue } from './local-classifier';
 
 export interface AppNotification {
   id: number;
@@ -36,7 +37,15 @@ export class DemoStateService {
   kbQuery$ = new BehaviorSubject<string>('');
 
   // --- Queue (live, shared) --------------------------------------------
-  queue: QueueTicket[] = QUEUE.map(t => ({ ...t }));
+  // Seed from static data then immediately hydrate so confidence/type/priority/evidence
+  // reflect the live KB instead of the hardcoded values in ticket-data.ts.
+  queue: QueueTicket[] = hydrateQueue(QUEUE.map(t => ({ ...t })), KB, DEFAULT_THRESHOLDS);
+
+  /** Re-derive classifier metadata for every ticket using the current KB and thresholds.
+   *  Call this whenever thresholds change or after a KB edit that could affect routing. */
+  rehydrateQueue(thresholds: Thresholds) {
+    this.queue = hydrateQueue(this.queue, this.kb, thresholds);
+  }
 
   // --- Queue helpers ------------------------------------------------------
   setTicketStatus(ticketId: string | undefined, status: 'approved' | 'escalated') {

@@ -1,8 +1,8 @@
 import { Component, Input, OnChanges, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { SCENARIOS, SCENARIO_ORDER, TYPE_META, routeFor, Thresholds, ScenarioStep, Scenario, QueueTicket } from '../ticket-data';
+import { SCENARIOS, TYPE_META, routeFor, Thresholds, ScenarioStep, Scenario, QueueTicket } from '../ticket-data';
 import { TicketResolutionApiService } from '../ticket-resolution-api.service';
-import { buildDynamicScenario, classifyIssue, isBugIntent, isVagueQuery, parseResolutionText, LocalClassifyResult, BUG_SYMPTOM_KEYWORDS } from '../local-classifier';
+import { classifyIssue, isBugIntent, isVagueQuery, isNegationQuery, parseResolutionText, LocalClassifyResult, BUG_SYMPTOM_KEYWORDS, NOVEL_SIGNALS, hydrateScenario } from '../local-classifier';
 import { DemoStateService } from '../demo-state.service';
 
 type OutcomeKind = 'fixed' | 'notify' | 'failed' | null;
@@ -20,7 +20,6 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   @ViewChild('scrollEl') scrollEl!: ElementRef<HTMLElement>;
 
   SCENARIOS = SCENARIOS;
-  SCENARIO_ORDER = SCENARIO_ORDER;
   TYPE_META = TYPE_META;
   routeFor = routeFor;
 
@@ -29,6 +28,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   sid = 'custom';
   rephraseCount = 0;
   lastConfidence = 0;
+  excludedKbIds = new Set<string>();
   n = 0;
   halted = false;
   outcome: OutcomeKind = null;
@@ -64,7 +64,17 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     this.composerText = '';
     this.pendingAttachment = null;
 
-    const msg = text || 'Please take a look at the attached file.';
+    // When an image is attached with no text, extract context from the filename
+    // so the classifier has something to work with beyond the generic fallback.
+    let msg = text;
+    if (!msg && attachment?.kind === 'image') {
+      const hint = this.imageContextFromName(attachment.name);
+      msg = hint
+        ? `Please take a look at the attached screenshot — it shows an issue with: ${hint}.`
+        : 'Please take a look at the attached screenshot.';
+    } else if (!msg) {
+      msg = 'Please take a look at the attached file.';
+    }
 
     let currentSteps: ScenarioStep[] = [];
     if (this.sid === '__custom' && this.SCENARIOS['__custom']) {
@@ -107,28 +117,70 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       setTimeout(() => this.scrollToBottom(), 50);
 
       setTimeout(() => {
-        const stepsList = this.SCENARIOS['__custom'].steps;
-        const thinkIdx = stepsList.findIndex(s => s.kind === 'thinking' && s.agent);
-        
-        const replyText = getSimulatedAgentReply(msg, this.SCENARIOS['__custom']?.steps.slice(0, this.n) || []);
-        const agentStep: ScenarioStep = {
-          from: 'ai',
-          agent: true,
-          text: replyText
-        };
-        
+        const currentScenario = this.SCENARIOS['__custom'];
+        if (!currentScenario) return;
+        const oldSteps = currentScenario.steps;
+        const thinkIdx = oldSteps.findIndex(s => s.kind === 'thinking' && s.agent);
+
+        // Exclude the typing step itself so the reply function sees only real
+        // conversation history, not "Maya is typing…".
+        const contextSteps = thinkIdx !== -1
+          ? oldSteps.slice(0, thinkIdx)
+          : oldSteps.slice(0, this.n);
+        const replyText = getSimulatedAgentReply(msg, contextSteps);
+        const agentStep: ScenarioStep = { from: 'ai', agent: true, text: replyText };
+
+        // Build a new steps array so Angular's ngFor detects the reference change.
+        const newSteps = oldSteps.slice();
         if (thinkIdx !== -1) {
-          stepsList[thinkIdx] = agentStep;
+          newSteps[thinkIdx] = agentStep;
         } else {
-          stepsList.push(agentStep);
+          newSteps.push(agentStep);
         }
-        
-        this.n = stepsList.length;
+
+        this.SCENARIOS = {
+          ...this.SCENARIOS,
+          __custom: { ...currentScenario, steps: newSteps },
+        };
+        this.n = newSteps.length;
         this.halted = false;
         this.demo.notify('Maya (Support)', replyText, 'blue');
         setTimeout(() => this.scrollToBottom(), 50);
+
+        // Auto follow-up: when Maya's reply is a placeholder ("give me a moment",
+        // "checking now", etc.) she proactively comes back with findings so the
+        // user doesn't have to prompt again.
+        if (mayaWillFollowUp(replyText)) {
+          this.scheduleMayaFollowUp(replyText, newSteps.length);
+        }
       }, 1600);
       
+      return;
+    }
+
+    // ── Negation detection ────────────────────────────────────────────────────
+    // If the user explicitly rejects the previous answer ("issue is different",
+    // "that's not it", etc.), exclude the last matched KB from the next round
+    // and ask them to describe their actual issue instead of re-classifying.
+    const isNegation = isNegationQuery(msg);
+    if (isNegation) {
+      const prevKbId = this.SCENARIOS['__custom']?.kbId;
+      if (prevKbId) this.excludedKbIds.add(prevKbId);
+
+      const clarifyStep: ScenarioStep = {
+        from: 'ai',
+        text: "Understood — that wasn't the right match. Could you describe what's actually happening? The more specific you are (what you see, when it started, which page), the better I can find the right fix.",
+      };
+      currentSteps.push(userStep, clarifyStep);
+      this.SCENARIOS = {
+        ...this.SCENARIOS,
+        __custom: { ...this.SCENARIOS['__custom'], steps: currentSteps, summary: msg },
+      };
+      this.n = currentSteps.length;
+      this.halted = false;
+      this.rephraseCount = 0;
+      this.lastConfidence = 0;
+      setTimeout(() => this.scrollToBottom(), 50);
       return;
     }
 
@@ -148,6 +200,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       if (intentChanged) {
         this.rephraseCount = 0;
         this.lastConfidence = 0;
+        this.excludedKbIds = new Set();
       }
     }
 
@@ -176,6 +229,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     this.outcome = null;
     this.agentJoined = false;
     this.liveAnswer = null;
+    this.formSubmitted = false;
     clearTimeout(this.timer);
     setTimeout(() => this.scrollToBottom(), 50);
 
@@ -185,9 +239,14 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       const isOffline = !response.ok || response.model === 'demo-fallback';
 
       // ── Build cumulative context ONCE ──────────────────────────────────────
-      // Joining the last 3 user turns + this message means short follow-ups
-      // ("widget missing") are evaluated with the full conversation context.
+      // Only use user messages from the current "session" — i.e. after the
+      // last status step. This prevents the original bug description from
+      // bleeding into follow-up classifications after a ticket was raised.
+      const lastStatusIdx = currentSteps.reduce(
+        (idx, s, i) => (s.kind === 'status' ? i : idx), -1
+      );
       const priorUserTexts = currentSteps
+        .slice(lastStatusIdx + 1)
         .filter(s => s.from === 'user' && s.text)
         .map(s => s.text || '')
         .slice(-3);
@@ -204,7 +263,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       let localResult: LocalClassifyResult | null = null;
 
       if (isOffline) {
-        localResult = classifyIssue(cumulativeMsg, this.demo.kb, this.thresholds);
+        localResult = classifyIssue(cumulativeMsg, this.demo.kb, this.thresholds, this.excludedKbIds);
         score = localResult.confidence;
         route = localResult.route;
         type = localResult.type;
@@ -237,13 +296,15 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
 
       // ── Branch: non-bug chit-chat ──────────────────────────────────────────
       if (!isBug) {
-        const greetings = [
-          "Hello! Describe your product issue and I'll search the knowledge base for a fix — Booking Engine, Analytics, Email campaigns, Salesforce, or Account settings.",
-          "Hi there! I can diagnose product bugs locally. Tell me what's happening and I'll match it against our knowledge base.",
-          "Welcome! Describe the issue in plain language (what you see, when it started) and I'll find the right resolution.",
+        // Use a context-aware nudge, not a first-time greeting, since the
+        // conversation has already started when the user reaches this branch.
+        const nudges = [
+          "I want to make sure I find the right fix. Could you describe the specific issue — what you see on screen, which feature it affects, and when it started?",
+          "Tell me a bit more so I can search the knowledge base accurately: what exactly is broken or unexpected, and on which page or feature?",
+          "To find the best match, I need a little more detail: what behavior are you seeing, and what did you expect to happen instead?",
         ];
         const aiStepText = isOffline
-          ? greetings[Math.floor(Math.random() * greetings.length)]
+          ? nudges[Math.floor(Math.random() * nudges.length)]
           : (response.answer || 'No reply returned.');
         const aiStep: ScenarioStep = { from: 'ai', text: aiStepText };
         if (thinkIdx !== -1) stepsList[thinkIdx] = aiStep;
@@ -252,11 +313,11 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         this.halted = false;
 
       // ── Branch: vague bug — ask for more detail ────────────────────────────
-      // Allow a 3rd round if confidence rose since the last rephrase (user's
-      // clarification added real signal); otherwise cap at 2 rounds.
-      } else if (isVague && this.rephraseCount < (score > this.lastConfidence && this.rephraseCount === 2 ? 3 : 2)) {
-        this.lastConfidence = score;
+      // Allow a 3rd round only when confidence genuinely improved on the 2nd round.
+      // Compare BEFORE updating lastConfidence so we don't always see improvement vs 0.
+      } else if (isVague && this.rephraseCount < (this.rephraseCount === 2 && score > this.lastConfidence ? 3 : 2)) {
         this.rephraseCount++;
+        this.lastConfidence = score;
         const clarifyText = this.rephraseCount === 1
           ? `I can see this is related to the **${area}** area, but I need a bit more detail to find the right fix. What exactly do you see — is something missing, showing an error, or not loading?`
           : `I want to make sure I give you the right answer. Could you describe the exact symptoms or steps to reproduce it?`;
@@ -273,13 +334,14 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         let finalScore = score;
         let finalRoute = route;
 
-        const maxRephrase = score > this.lastConfidence && this.rephraseCount === 2 ? 3 : 2;
+        const maxRephrase = this.rephraseCount === 2 && score > this.lastConfidence ? 3 : 2;
         if (isVague && this.rephraseCount >= maxRephrase) {
           // User couldn't clarify after allowed attempts — open a ticket.
-          // Penalty scales with how many rounds were wasted.
+          // Use the count BEFORE sentinel increment so penalty reflects actual rounds wasted.
+          const penaltyRounds = this.rephraseCount;
           this.rephraseCount = maxRephrase + 1;
           finalType = 1;
-          finalScore = Math.max(0, score - (this.rephraseCount * 8));
+          finalScore = Math.max(0, score - (penaltyRounds * 8));
           finalRoute = 'eng';
         } else {
           this.rephraseCount = 0;
@@ -288,6 +350,35 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
 
         const classifyStep: ScenarioStep = { from: 'ai', kind: 'classify' };
         let aiStep: ScenarioStep;
+
+        // ── Pre-escalation clarification ─────────────────────────────────────
+        // When the classifier can't find a KB match (type 1) but there are no
+        // explicit regression signals (not a genuine "broke after update" bug),
+        // ask for more context before opening a ticket. This gives the user up
+        // to 2 rounds to describe their actual issue more specifically.
+        const isGenuinelyNovel = localResult?.looksNovel
+          || NOVEL_SIGNALS.some(s => cumulativeMsg.includes(s.phrase));
+        const preEscalateLimit = 2;
+
+        if (finalType === 1 && !isGenuinelyNovel && this.rephraseCount < preEscalateLimit) {
+          this.rephraseCount++;
+          this.lastConfidence = finalScore;
+          const deepenText = this.rephraseCount === 1
+            ? `I couldn't find a confident match in our knowledge base yet. To route this correctly, could you describe:\n• What exactly do you see — error message, blank screen, wrong data?\n• Which feature or page is this on?\n• When did it start happening?`
+            : `Still narrowing this down. A few more details would help:\n• Is there a specific error code or message?\n• Does it happen for all users or just you?\n• Did anything change recently — new setting, permission, or update?`;
+          const deepenStep: ScenarioStep = { from: 'ai', text: deepenText };
+          if (thinkIdx !== -1) stepsList[thinkIdx] = deepenStep;
+          else stepsList.push(deepenStep);
+          this.SCENARIOS['__custom'].type = finalType;
+          this.SCENARIOS['__custom'].confidence = finalScore;
+          this.SCENARIOS['__custom'].productArea = area;
+          this.SCENARIOS['__custom'].kbId = kbId;
+          this.SCENARIOS['__custom'].evidence = evidence;
+          this.n = stepsList.length;
+          this.halted = false;
+          setTimeout(() => this.scrollToBottom(), 50);
+          return;
+        }
 
         if (finalType === 1) {
           const isVagueFallback = isVague && this.rephraseCount > maxRephrase;
@@ -456,11 +547,60 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     const input = ev.target as HTMLInputElement;
     const file = input.files && input.files[0];
     if (!file) return;
-    const kind: 'image' | 'video' = file.type.startsWith('video') ? 'video' : 'image';
-    this.pendingAttachment = { name: file.name, url: URL.createObjectURL(file), kind };
+    this.stageFile(file);
     input.value = '';
   }
   clearAttachment() { this.pendingAttachment = null; }
+
+  /** Drag-and-drop: prevent default so the browser doesn't navigate away. */
+  onDragOver(ev: DragEvent) { ev.preventDefault(); ev.stopPropagation(); }
+
+  onDrop(ev: DragEvent) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const file = ev.dataTransfer?.files?.[0];
+    if (file) this.stageFile(file);
+  }
+
+  /** Clipboard paste — captures images pasted with Ctrl+V / ⌘V. */
+  onPaste(ev: ClipboardEvent) {
+    const items = ev.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) {
+          ev.preventDefault();
+          this.stageFile(file);
+          return;
+        }
+      }
+    }
+  }
+
+  /** Stage any File as a pending attachment (used by upload, drop, and paste). */
+  stageFile(file: File) {
+    const kind: 'image' | 'video' = file.type.startsWith('video') ? 'video' : 'image';
+    const name = file.name || (kind === 'image' ? 'pasted-image.png' : 'pasted-video.mp4');
+    this.pendingAttachment = { name, url: URL.createObjectURL(file), kind };
+  }
+
+  /**
+   * Extract product-area context hints from an image filename.
+   * Used to pre-populate the classifier when no text is provided alongside the image.
+   * Returns a short hint string or empty string if no signals found.
+   */
+  imageContextFromName(name: string): string {
+    const n = name.toLowerCase().replace(/[-_.]/g, ' ');
+    const hints: string[] = [];
+    if (/booking|widget|reservation|reserve|checkout/.test(n)) hints.push('booking engine widget');
+    if (/analytic|chart|dashboard|graph|report/.test(n))       hints.push('analytics dashboard');
+    if (/email|campaign|segment|newsletter/.test(n))           hints.push('email campaign');
+    if (/salesforce|sync|integration|webhook|api|crm/.test(n)) hints.push('integration sync');
+    if (/account|invite|login|seat|billing|permission/.test(n)) hints.push('account settings');
+    if (/blank|missing|empty|broken|error|fail/.test(n))       hints.push('not loading');
+    return hints.join(', ');
+  }
 
   /** Form file picker → stage an image/video preview for the ticket. */
   onFormAttach(ev: Event) {
@@ -492,6 +632,50 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     this.demo.notify('Agent joined', 'A support specialist took over the conversation.', 'blue');
     setTimeout(() => this.scrollToBottom(), 50);
   }
+  /** Contextual quick-reply chips — shown throughout the custom chat, not just at the start. */
+  get dynamicChips(): string[] {
+    // Before any user interaction: generic topic starters
+    if (this.n <= 1) {
+      return [
+        'Booking engine issue',
+        'Analytics not loading',
+        'Login / account problem',
+        'Email campaign error',
+        'Integration not working',
+      ];
+    }
+    // After escalation status message: follow-up options
+    if (this.last?.kind === 'status') {
+      return ['Add more context', 'Mark as urgent', 'Different issue', 'Contact support'];
+    }
+    // Area-specific follow-up chips so the user can narrow or pivot without retyping
+    const area = this.scenario?.productArea || 'General';
+    const byArea: Record<string, string[]> = {
+      'Booking engine':   ['Widget still missing', 'Rate plan problem', 'Currency at checkout', 'Different page issue'],
+      'Analytics':        ['Charts still blank',   'Wrong data shown',  'Export not working',   'Different dashboard'],
+      'Account':          ["Can't invite teammate", 'Login problem',     'Billing question',     'Permission issue'],
+      'Email campaigns':  ['Still sending twice',  'Campaign not sending', 'Segment issue',     'Unsubscribe problem'],
+      'Integrations':     ['Sync still failing',   'API error',         'Webhook issue',        'Different integration'],
+    };
+    const areaChips = byArea[area] || ['Booking engine issue', 'Account problem', 'Analytics issue', 'Report a bug'];
+    return [...areaChips, 'Different issue'];
+  }
+
+  /** Show quick-reply chips throughout the custom chat session (not just at the start). */
+  get showStarterChips(): boolean {
+    if (this.sid !== 'custom' && this.sid !== '__custom') return false;
+    if (this.agentJoined) return false;
+    if (this.outcome) return false;
+    if (this.halted) return false;               // clarify / confirm / ticket-form — AI needs specific input
+    if (this.last?.kind === 'thinking') return false;  // AI is mid-response
+    return true;
+  }
+
+  sendStarter(prompt: string) {
+    this.composerText = prompt;
+    this.onSend();
+  }
+
   get steps(): ScenarioStep[] { return this.scenario.steps; }
   get visible(): ScenarioStep[] { return this.steps.slice(0, this.n); }
   get classified(): boolean { return this.visible.some(s => s.kind === 'classify'); }
@@ -501,15 +685,27 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   get pendingForm(): boolean { return this.halted && !this.formSubmitted && !!this.last && this.last.kind === 'ticket-form'; }
   get done(): boolean { return !this.steps[this.n] || !!this.outcome; }
 
-  ngOnChanges() { /* thresholds change — no reset needed */ }
+  ngOnChanges() {
+    // Re-derive static scenario metadata against the live KB whenever thresholds change.
+    for (const id of ['type1', 'type2', 'type3']) {
+      if (this.SCENARIOS[id]) {
+        this.SCENARIOS = { ...this.SCENARIOS, [id]: hydrateScenario(this.SCENARIOS[id], this.demo.kb, this.thresholds) };
+      }
+    }
+  }
 
   ngOnInit() {
     // Load scenarios from the backend; fall back to bundled data if offline.
     this.sub = this.api.getScenarios().subscribe(res => {
       if (res && res.map && Object.keys(res.map).length) {
         this.SCENARIOS = res.map;
-        this.SCENARIO_ORDER = res.order;
-        if (!this.SCENARIOS[this.sid]) this.sid = this.SCENARIO_ORDER[0];
+        if (!this.SCENARIOS[this.sid]) this.sid = 'custom';
+      }
+      // Hydrate static scenario metadata after scenarios are loaded.
+      for (const id of ['type1', 'type2', 'type3']) {
+        if (this.SCENARIOS[id]) {
+          this.SCENARIOS = { ...this.SCENARIOS, [id]: hydrateScenario(this.SCENARIOS[id], this.demo.kb, this.thresholds) };
+        }
       }
       this.startPlayback();
     });
@@ -536,9 +732,11 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       this.n = template.steps.length;
       this.halted = false;
       this.outcome = null;
+      this.agentJoined = false;
       this.customTicketId = null;
       this.rephraseCount = 0;
       this.lastConfidence = 0;
+      this.excludedKbIds = new Set();
       this.formSubject = '';
       this.formArea = '';
       this.formPriority = 'P3';
@@ -557,6 +755,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     this.customTicketId = null;
     this.rephraseCount = 0;
     this.lastConfidence = 0;
+    this.excludedKbIds = new Set();
     this.formSubject = '';
     this.formArea = '';
     this.formPriority = 'P3';
@@ -684,6 +883,41 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     }
   }
 
+  /**
+   * Schedules Maya's automatic follow-up after a placeholder reply.
+   * Shows "Maya is typing…" after 4 s, then delivers the investigation
+   * result 2 s later — no user input required.
+   */
+  scheduleMayaFollowUp(placeholderReply: string, stepsLenAfterReply: number) {
+    setTimeout(() => {
+      const scenario = this.SCENARIOS['__custom'];
+      if (!scenario) return;
+
+      // Insert "Maya is typing…" thinking bubble.
+      const withThink = [...scenario.steps, { from: 'ai' as const, agent: true, kind: 'thinking' as const }];
+      this.SCENARIOS = { ...this.SCENARIOS, __custom: { ...scenario, steps: withThink } };
+      this.n = withThink.length;
+      this.halted = false;
+      setTimeout(() => this.scrollToBottom(), 50);
+
+      // After 2 more seconds replace thinking bubble with the follow-up reply.
+      setTimeout(() => {
+        const cur = this.SCENARIOS['__custom'];
+        if (!cur) return;
+        const followUpText = getMayaFollowUpReply(placeholderReply, cur.steps.slice(0, stepsLenAfterReply));
+        const thinkIdx = cur.steps.findIndex(s => s.kind === 'thinking' && s.agent);
+        const resolved: ScenarioStep = { from: 'ai', agent: true, text: followUpText };
+        const next = cur.steps.slice();
+        if (thinkIdx !== -1) { next[thinkIdx] = resolved; } else { next.push(resolved); }
+        this.SCENARIOS = { ...this.SCENARIOS, __custom: { ...cur, steps: next } };
+        this.n = next.length;
+        this.halted = false;
+        this.demo.notify('Maya (Support)', followUpText, 'blue');
+        setTimeout(() => this.scrollToBottom(), 50);
+      }, 2000);
+    }, 4000);
+  }
+
   ngOnDestroy() {
     clearTimeout(this.timer);
     if (this.sub) {
@@ -693,56 +927,162 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
 }
 
 /**
- * Simulate a human agent reply that is aware of the conversation history.
- * Previously this was pure keyword-matching on the latest message with no
- * context. Now it checks what the AI already tried so Maya's replies
- * don't repeat suggestions or act unaware of prior turns.
+ * Simulate a human agent reply that is fully context-aware.
+ *
+ * Key improvements over the previous version:
+ *  - Reads Maya's LAST message to understand what question was just asked,
+ *    so "yes" / "no" replies are processed in context, not as generic input.
+ *  - Tracks recently-sent replies and excludes them from the fallback pool,
+ *    so the same line is never repeated in consecutive turns.
+ *  - Progressive investigation flow: browser → all-users → logs → escalate,
+ *    driven by the answers the user gives, not random selection.
  */
 function getSimulatedAgentReply(userMessage: string, history: ScenarioStep[]): string {
-  const msg = userMessage.toLowerCase();
+  const msg = userMessage.toLowerCase().trim();
 
-  // What has the AI already attempted in this conversation?
+  // ── Conversational context ──────────────────────────────────────────────────
+  const agentSteps = history.filter(s => s.agent && s.from === 'ai' && s.text && s.kind !== 'thinking');
+  const lastMayaText = (agentSteps[agentSteps.length - 1]?.text || '').toLowerCase();
+  const recentMayaTexts = new Set(agentSteps.slice(-3).map(s => s.text || ''));
+
+  // ── What the AI system already tried ───────────────────────────────────────
   const aiAlreadySentFix = history.some(s => s.kind === 'resolution' || s.kind === 'known');
   const aiEscalated      = history.some(s => s.kind === 'novel' || s.kind === 'status');
   const priorWorkaround  = history.find(s => s.kind === 'known');
   const workaroundTitle  = priorWorkaround?.headline || 'that workaround';
 
-  // User confirms fix worked
-  if (msg.includes('thank') || msg.includes('awesome') || msg.includes('great') || msg.includes('perfect')) {
-    return "You're very welcome! Glad we got that sorted. I'll mark this ticket resolved — feel free to reach out any time.";
-  }
-  if (aiAlreadySentFix && (msg.includes('work') || msg.includes('fixed') || msg.includes('resolved') || msg.includes('working'))) {
-    return `Great to hear! I'll mark the ticket resolved on our end. The resolution has been logged so we can automate this for future customers.`;
-  }
+  // ── Detect simple affirmative / negative replies ────────────────────────────
+  const AFFIRMATIVES = new Set(['yes', 'yeah', 'yep', 'yup', 'correct', 'right', 'sure', 'ok', 'okay', 'true', 'confirmed']);
+  const NEGATIVES    = new Set(['no', 'nope', 'nah', 'not really', 'no it does not', "doesn't", 'negative']);
+  const isAffirmative = AFFIRMATIVES.has(msg) || msg.startsWith('yes,') || msg.startsWith('yes ');
+  const isNegative    = NEGATIVES.has(msg) || msg.startsWith('no,') || msg.startsWith('no ');
+  const isSimpleAnswer = isAffirmative || isNegative;
 
-  // User says the AI's fix didn't work
-  if (aiAlreadySentFix && (msg.includes("didn't") || msg.includes("not work") || msg.includes("still") || msg.includes("same issue"))) {
-    return `Sorry "${workaroundTitle}" didn't do it. I'm escalating this to our senior engineering team right now with the full conversation attached — they'll follow up within the hour and won't need you to repeat anything.`;
-  }
-
-  // User asks about timing
-  if (msg.includes('how long') || msg.includes('eta') || msg.includes('when') || msg.includes('update')) {
-    if (aiEscalated) {
-      return "Our engineering team has been notified with P1 priority. You should hear back within the hour. I'll personally follow up if you don't.";
+  // ── Context-driven response to Maya's last question ────────────────────────
+  if (isSimpleAnswer && lastMayaText) {
+    if (lastMayaText.includes('browser')) {
+      return isAffirmative
+        ? "Got it — same issue across all browsers means it's server-side, not a local cache problem. I'm pulling your account session logs now to look for errors."
+        : "Helpful — which browser works correctly? That'll let me isolate whether it's a rendering issue or a session problem.";
     }
-    return "Our standard SLA for this type of issue is 4 hours, but I'm watching this one directly and will update you as soon as I have news.";
+    if (lastMayaText.includes('all users') || lastMayaText.includes('everyone') || lastMayaText.includes('other users')) {
+      return isAffirmative
+        ? "Account-wide impact confirmed. I'm escalating to our backend team right now with full context — they should have an update within the hour."
+        : "So it's isolated to your account — that points to a permission or configuration issue. Let me check your account settings and role assignments.";
+    }
+    if (lastMayaText.includes('error') && lastMayaText.includes('message')) {
+      return isAffirmative
+        ? "Can you share the exact wording of the error? Even a partial message helps us pinpoint which service is failing."
+        : "No error message — just unexpected behavior. That narrows it to a data or rendering issue rather than an authentication failure.";
+    }
+    if (lastMayaText.includes('recently') || lastMayaText.includes('change') || lastMayaText.includes('update')) {
+      return isAffirmative
+        ? "That's very useful — a recent change is likely the trigger. Can you tell me what was changed and roughly when? I'll correlate it with our deployment log."
+        : "No recent changes on your end. I'll check whether there was a platform-side deployment that could have caused this.";
+    }
+    if (lastMayaText.includes('reproduce') || lastMayaText.includes('steps')) {
+      return isAffirmative
+        ? "Great — walk me through the steps and I'll reproduce it on my side to confirm the root cause."
+        : "No consistent repro steps — intermittent issues are trickier, but not impossible. Does it correlate with a particular time of day or a specific data set?";
+    }
+    // Generic yes/no that doesn't match a specific previous question
+    return isAffirmative
+      ? "Thanks for confirming. I've noted that — let me keep investigating and I'll come back to you with a concrete next step."
+      : "Understood. Let me look at this from a different angle — I'll check if there's a known pattern matching what you're seeing.";
   }
 
-  // User reports an error or ongoing issue
+  // ── Gratitude / resolution confirmation ────────────────────────────────────
+  if (msg.includes('thank') || msg.includes('awesome') || msg.includes('great') || msg.includes('perfect') || msg.includes('resolved')) {
+    return "You're very welcome! Glad we got that sorted. I'll close this ticket on our end — feel free to reach out any time.";
+  }
+  if (aiAlreadySentFix && (msg.includes('work') || msg.includes('fixed') || msg.includes('working'))) {
+    return "Great to hear! I'll mark this resolved and log the fix so we can surface it faster for anyone who hits the same issue.";
+  }
+
+  // ── Fix didn't hold ────────────────────────────────────────────────────────
+  if (aiAlreadySentFix && (msg.includes("didn't") || msg.includes("not work") || msg.includes("still") || msg.includes("same issue"))) {
+    return `Sorry "${workaroundTitle}" didn't hold. I'm escalating to our senior engineering team with the full conversation attached — they'll follow up within the hour and won't need you to repeat anything.`;
+  }
+
+  // ── Timing / ETA questions ─────────────────────────────────────────────────
+  if (msg.includes('how long') || msg.includes('how much time') || msg.includes('eta') || msg.includes('when will') || msg.includes('how soon')) {
+    return aiEscalated
+      ? "The engineering team has been flagged with P1 priority. You should hear back within the hour — I'll personally follow up if you don't."
+      : "Our standard SLA for this type of issue is 4 hours, but I'm actively watching this one and will update you as soon as I have news.";
+  }
+
+  // ── Ongoing bug / error signal ─────────────────────────────────────────────
   if ([...BUG_SYMPTOM_KEYWORDS, ...AGENT_EXTRA_SIGNALS].some(k => msg.includes(k))) {
     if (aiAlreadySentFix) {
       return "Understood — the automated fix didn't hold. Let me pull your account logs and check if there's a backend configuration issue specific to your environment.";
     }
-    return "I see the issue. I'm looking into our backend logs right now. One moment — I'll have more information for you shortly.";
+    return "I see the issue. I'm checking our backend logs now — give me just a moment.";
   }
 
-  // Generic fallback pool — varied to avoid repetition
-  const replies = [
-    "I'm reviewing everything you've shared. Let me dig into this on my end and get back to you with a concrete next step.",
-    "Got it. I'm pulling up your account settings to check for any backend misconfiguration that might explain this.",
+  // ── Fallback pool — never repeat a recently-sent reply ────────────────────
+  // Questions progress through a natural investigation arc so each turn moves
+  // the conversation forward rather than looping on the same prompt.
+  const fallbacks = [
+    "I'm reviewing everything you've shared. Let me dig into this and get back to you with a concrete next step.",
+    "Got it. I'm pulling up your account settings to check for any backend misconfiguration.",
     "On it. I'm cross-checking with our service status and your account history — give me just a moment.",
-    "Let me check that for you. Can you confirm whether this happens on all browsers, or just one specific browser?",
+    "Can you confirm whether this affects all users on your account, or just you?",
+    "Does this happen on all browsers, or is it specific to one?",
+    "Have you noticed any error messages, even briefly? Any detail helps narrow it down.",
+    "Did anything change recently — a new team member, a settings update, or a platform announcement you saw?",
     "I can see the full context of this conversation so no need to repeat anything. Let me investigate and follow up shortly.",
   ];
-  return replies[Math.floor(Math.random() * replies.length)];
+  const available = fallbacks.filter(r => !recentMayaTexts.has(r));
+  const pool = available.length > 0 ? available : fallbacks;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/** Phrases that signal Maya is doing async work and will follow up. */
+const PLACEHOLDER_PHRASES = [
+  'give me just a moment', 'give me a moment', 'just a moment',
+  'checking our backend', 'checking backend', 'checking now',
+  'pulling up your account', 'pulling up', 'reviewing everything',
+  'let me dig', 'cross-checking', 'follow up shortly',
+  "i'll follow up", "i'll be back", 'looking into this',
+  'looking into it', 'on it.', 'investigating',
+];
+
+function mayaWillFollowUp(reply: string): boolean {
+  const lower = reply.toLowerCase();
+  return PLACEHOLDER_PHRASES.some(p => lower.includes(p));
+}
+
+/**
+ * Generates a contextual investigation result that Maya delivers after
+ * her async placeholder reply (e.g. "checking backend logs now…").
+ * Reads conversation history to pick the most relevant finding.
+ */
+function getMayaFollowUpReply(placeholder: string, history: ScenarioStep[]): string {
+  const ph = placeholder.toLowerCase();
+  const userContext = history.filter(s => s.from === 'user' && s.text).map(s => s.text!.toLowerCase()).join(' ');
+
+  // Pick a follow-up branch based on what Maya said she was checking.
+  if (ph.includes('backend log') || ph.includes('backend')) {
+    return "I've pulled your backend logs. I can see a series of 503 errors originating from the auth service around the time you reported the issue — looks like a token refresh failure. I'm looping in the backend team with the trace ID so they can patch it. You should hear back within the hour.";
+  }
+  if (ph.includes('account setting') || ph.includes('account')) {
+    return "I've reviewed your account configuration. Your role assignments look correct, but I can see a permission cache that hasn't refreshed since yesterday's deploy. I've cleared it on our side — can you try again now and let me know if the issue persists?";
+  }
+  if (ph.includes('service status') || ph.includes('status')) {
+    return "I've checked our service-status board. There's a partial degradation in the reporting module that started about 2 hours ago — our team is actively working on it. I've added your ticket to the incident so you'll get an automatic update when it's resolved.";
+  }
+  if (ph.includes('cross-check') || ph.includes('reviewing everything')) {
+    return "I've finished my review. Based on your account history and our deployment log, this appears to be related to a config change that went out in yesterday's release. I'm filing an internal bug with your session details attached — someone from engineering will reach out within the hour.";
+  }
+
+  // Generic follow-up for unrecognized placeholders.
+  // Use userContext to bias toward more relevant options.
+  const genericOptions = [
+    { text: "I've dug into this further. There's a known intermittent issue with that component affecting a small set of accounts — our team has a fix in staging that should ship tonight. I'll notify you the moment it's live.", bias: ['intermittent', 'sometimes', 'random', 'occasionally'] },
+    { text: "I've reviewed the logs and found an anomaly in the request pipeline for your account. I've escalated this with full trace details to our backend team — they're looking at it now and you'll get an update within the hour.", bias: ['error', 'broken', 'fail', 'not working', 'crash'] },
+    { text: "After checking everything, I believe this is linked to a configuration rollout from yesterday. I've flagged it to the relevant team with your details and they'll prioritize it. Is there anything else I can help you with in the meantime?", bias: ['update', 'change', 'deploy', 'yesterday', 'after'] },
+  ];
+  const biased = genericOptions.filter(o => o.bias.some(b => userContext.includes(b)));
+  const pool = biased.length > 0 ? biased : genericOptions;
+  return pool[Math.floor(Math.random() * pool.length)].text;
 }

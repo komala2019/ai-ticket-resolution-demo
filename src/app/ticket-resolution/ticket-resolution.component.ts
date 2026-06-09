@@ -27,6 +27,8 @@ export class TicketResolutionComponent implements OnInit, OnDestroy {
   constructor(public demo: DemoStateService) {}
 
   ngOnInit() {
+    // Sync queue metadata with the component's starting thresholds (service inits with DEFAULT_THRESHOLDS).
+    this.demo.rehydrateQueue(this.thresholds);
     this.subs.push(
       this.demo.viewState$.subscribe(v => {
         if (v) this.view = v;
@@ -121,10 +123,12 @@ export class TicketResolutionComponent implements OnInit, OnDestroy {
     t.approve = Math.min(t.approve, t.auto - 5);
     t.rewrite = Math.min(t.rewrite, t.approve - 5);
     this.thresholds = t;
+    this.demo.rehydrateQueue(this.thresholds);
   }
 
   resetThresholds() {
     this.thresholds = { auto: 90, approve: 70, rewrite: 40 };
+    this.demo.rehydrateQueue(this.thresholds);
   }
 
   get toastIcon() {

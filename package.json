@@ -6,7 +6,9 @@
     "start": "ng serve",
     "build": "ng build --configuration production",
     "debug": "node scripts/debugger/main-debugger.js",
-    "eval": "node scripts/eval-rag.mjs"
+    "eval": "node scripts/eval-rag.mjs",
+    "test": "node scripts/test-suite/run.mjs --no-judge",
+    "test:judge": "node scripts/test-suite/run.mjs"
   },
   "private": true,
   "dependencies": {

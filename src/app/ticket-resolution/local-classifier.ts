@@ -8,7 +8,7 @@
 //
 // NOTE: confidence here is an explainable heuristic, not a learned probability.
 
-import { KbEntry, Thresholds, routeFor, DEFAULT_THRESHOLDS } from './ticket-data';
+import { KbEntry, Thresholds, routeFor, DEFAULT_THRESHOLDS, QueueTicket } from './ticket-data';
 import { Scenario, ScenarioStep } from './ticket-data';
 
 const AREA_KEYWORDS: Record<string, string[]> = {
@@ -19,7 +19,7 @@ const AREA_KEYWORDS: Record<string, string[]> = {
   'Account': ['account', 'invite', 'seat', 'billing', 'login', 'password', 'user', 'permission'],
 };
 
-const NOVEL_SIGNALS: { phrase: string; weight: number }[] = [
+export const NOVEL_SIGNALS: { phrase: string; weight: number }[] = [
   { phrase: 'stopped working after', weight: 14 },
   { phrase: 'after your update',     weight: 13 },
   { phrase: 'after the upgrade',     weight: 13 },
@@ -33,6 +33,56 @@ const NOVEL_SIGNALS: { phrase: string; weight: number }[] = [
 
 /** Scoring weights for the three KB match signals. Exported for tuning and tests. */
 export const KB_SCORE_WEIGHTS = { title: 45, entry: 45, tags: 10 } as const;
+
+/**
+ * Phrases that signal the user is explicitly rejecting the previous AI answer.
+ * When detected, prior KB matches should be excluded and context reset.
+ */
+export const NEGATION_SIGNALS: string[] = [
+  // Explicit rejection
+  'issue is different',
+  'different issue',
+  'not my issue',
+  "that's not it",
+  "that's not my",
+  'wrong issue',
+  'not what i',
+  'not the same',
+  'different problem',
+  'not my problem',
+  "doesn't match",
+  'does not match',
+  'wrong article',
+  'wrong fix',
+  'not related',
+  'unrelated',
+  'not applicable',
+  // Natural follow-up alternatives users actually type
+  'other issue',
+  'other issues',
+  'other problem',
+  'another issue',
+  'another problem',
+  'something else',
+  'different thing',
+  'not this',
+  'not that',
+  'that is wrong',
+  "that's wrong",
+  'incorrect',
+  'wrong one',
+  'that was wrong',
+  'not helpful',
+  "didn't help",
+  'did not help',
+  'not what i need',
+  'not relevant',
+];
+
+export function isNegationQuery(message: string): boolean {
+  const msg = (message || '').toLowerCase();
+  return NEGATION_SIGNALS.some(s => msg.includes(s));
+}
 
 /** Single source of truth for bug/symptom signal words — used in isBugIntent and isVagueQuery. */
 export const BUG_SYMPTOM_KEYWORDS = [
@@ -179,14 +229,14 @@ function detectArea(haystack: string, kb?: KbEntry[]): string | null {
  * A query whose tokens perfectly cover a title + content scores 90+.
  * An unrelated query scores near 0. No magic constants needed.
  */
-function scoreKb(haystack: string, kb: KbEntry[]): ScoredEntry[] {
+function scoreKb(haystack: string, kb: KbEntry[], excludeIds: Set<string> = new Set()): ScoredEntry[] {
   const queryTokens = tokenize(haystack);
   if (queryTokens.size === 0) return [];
   const queryArr = Array.from(queryTokens);
 
   const results: ScoredEntry[] = [];
 
-  for (const entry of kb) {
+  for (const entry of (excludeIds.size > 0 ? kb.filter(e => !excludeIds.has(e.id)) : kb)) {
     // Full entry token set (title + content + tags)
     const entryText = (entry.title || '') + ' ' + (entry.content || '') + ' ' + (entry.tags || []).join(' ');
     const entryTokens = tokenize(entryText);
@@ -256,15 +306,18 @@ export interface LocalClassifyResult {
   evidence: { t: string; m: number }[];
   escalated: boolean;
   bestKb: KbEntry | null;
+  /** True when the message contains explicit regression/update language (NOVEL_SIGNALS).
+   *  Use this to distinguish "genuine new regression" from "just low KB confidence". */
+  looksNovel: boolean;
 }
 
-export function classifyIssue(message: string, kb: KbEntry[], thresholds: Thresholds): LocalClassifyResult {
+export function classifyIssue(message: string, kb: KbEntry[], thresholds: Thresholds, excludeIds: Set<string> = new Set()): LocalClassifyResult {
   const t = thresholds || DEFAULT_THRESHOLDS;
   const msg = (message || '').trim();
   const haystack = msg.toLowerCase();
 
   const area = detectArea(haystack, kb) || 'General';
-  const scored = scoreKb(haystack, kb || []);
+  const scored = scoreKb(haystack, kb || [], excludeIds);
   const best = scored[0] || null;
   const bestScore = best ? best.score : 0;
 
@@ -320,7 +373,7 @@ export function classifyIssue(message: string, kb: KbEntry[], thresholds: Thresh
          'If it persists, reply here and we\'ll take another look.'];
   }
 
-  return { type, confidence, route, productArea: area, priority, headline, intro, steps, evidence, escalated, bestKb: best ? best.entry : null };
+  return { type, confidence, route, productArea: area, priority, headline, intro, steps, evidence, escalated, bestKb: best ? best.entry : null, looksNovel };
 }
 
 /** Build a playable Scenario from a free-text message + classifier result. */
@@ -472,3 +525,28 @@ export function parseResolutionText(text: string, fallbackHeadline: string): Par
   return { headline, intro, steps };
 }
 
+/**
+ * Recompute a scenario's classifier-derived metadata (confidence, type, priority,
+ * productArea, evidence) by running classifyIssue on the first user message.
+ * Conversation steps are untouched — only metadata fields are patched so the
+ * values stay in sync with the live KB instead of being hardcoded seed values.
+ */
+export function hydrateScenario(scenario: Scenario, kb: KbEntry[], thresholds: Thresholds): Scenario {
+  const userMsg = scenario.steps.find(s => s.from === 'user')?.text;
+  if (!userMsg) return scenario;
+  const r = classifyIssue(userMsg, kb, thresholds);
+  return { ...scenario, confidence: r.confidence, type: r.type, priority: r.priority, productArea: r.productArea, evidence: r.evidence };
+}
+
+/**
+ * Recompute confidence, type, priority, area, and evidence for every QueueTicket
+ * by running classifyIssue on each ticket's subject + description against the live KB.
+ * All other fields (id, status, draft, customer, etc.) are preserved via spread.
+ */
+export function hydrateQueue(queue: QueueTicket[], kb: KbEntry[], thresholds: Thresholds): QueueTicket[] {
+  return queue.map(ticket => {
+    const query = [ticket.subject, ticket.description].filter(Boolean).join(' ');
+    const r = classifyIssue(query, kb, thresholds);
+    return { ...ticket, confidence: r.confidence, type: r.type, priority: r.priority, area: r.productArea, evidence: r.evidence };
+  });
+}

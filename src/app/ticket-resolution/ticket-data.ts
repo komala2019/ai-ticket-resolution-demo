@@ -89,7 +89,7 @@ export const SCENARIOS: Record<string, Scenario> = {
     productArea: 'General', priority: 'P3',
     summary: 'Custom user-submitted issue',
     steps: [
-      { from: 'ai', text: "Hello! Describe your issue in plain language and our AI will classify it and suggest a resolution." }
+      { from: 'ai', text: "Hi! Describe your issue and I'll match it against our knowledge base — or pick a topic below to get started." }
     ]
   },
   type3: {

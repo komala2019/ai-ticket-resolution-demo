@@ -50,28 +50,6 @@
   &:hover { background: var(--gray-50); }
 }
 
-.scenario-bar {
-  display: flex;
-  gap: 8px;
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--gray-100);
-  background: var(--gray-25, #FCFCFD);
-  flex-wrap: wrap;
-}
-
-.scenario-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 6px 11px;
-  border-radius: 9999px;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: .15s;
-  font-family: inherit;
-}
-.scenario-dot { width: 7px; height: 7px; border-radius: 50%; }
 
 .chat-messages {
   flex: 1;
@@ -280,6 +258,31 @@
   transition: .15s;
   &:hover { background: var(--primary-100); }
 }
+
+.starter-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0 8px 40px;
+}
+.starter-chip {
+  padding: 7px 13px;
+  border-radius: 9999px;
+  border: 1px solid var(--gray-300);
+  background: var(--tr-surface, #fff);
+  color: var(--gray-700);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: .15s;
+  &:hover {
+    border-color: var(--primary-400);
+    background: var(--primary-50);
+    color: var(--primary-700);
+  }
+}
+
 .composer {
   display: flex;
   align-items: center;
@@ -454,18 +457,6 @@
   .bubble {
     max-width: 90%;
   }
-  .scenario-bar {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding: 8px 12px;
-    -webkit-overflow-scrolling: touch;
-    &::-webkit-scrollbar {
-      display: none;
-    }
-  }
-  .scenario-chip {
-    flex-shrink: 0;
-  }
 }
 
 @media (max-width: 576px) {
@@ -492,9 +483,6 @@
   }
   .human-btn {
     padding: 7px;
-  }
-  .scenario-label-extra {
-    display: none;
   }
 }
 
