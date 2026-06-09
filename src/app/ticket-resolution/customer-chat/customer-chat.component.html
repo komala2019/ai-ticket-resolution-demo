@@ -15,6 +15,16 @@
           Replies in seconds<span class="header-sub-text"> · resolves most issues without a form</span>
         </div>
       </div>
+      <!-- Scenario Selector Dropdown -->
+      <div style="display:flex;align-items:center;gap:6px;margin-right:8px;">
+        <span style="font-size:12px;color:var(--gray-500);font-weight:600;white-space:nowrap;">Scenario:</span>
+        <select [ngModel]="sid" (ngModelChange)="selectScenario($event)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--gray-300);font-size:13px;color:var(--gray-700);background:#fff;cursor:pointer;font-family:inherit;font-weight:500;outline:none;">
+          <option value="__custom">Custom (Free text)</option>
+          <option value="type3">Booking widget missing (Type 3)</option>
+          <option value="type2">Analytics charts blank (Type 2)</option>
+          <option value="type1">Salesforce sync broke (Type 1)</option>
+        </select>
+      </div>
       <button class="replay-btn" (click)="replay()">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>

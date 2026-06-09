@@ -73,7 +73,8 @@ export class KbManagerComponent implements OnInit, OnDestroy {
 
   addEntry() {
     if (!this.newTitle.trim()) { this.showAdd = false; return; }
-    const id = 'KB-' + String(this.entries.length + 1).padStart(3, '0');
+    const maxId = Math.max(...this.entries.map(e => parseInt(e.id.replace('KB-', ''), 10) || 0), 4);
+    const id = 'KB-' + String(maxId + 1).padStart(3, '0');
     const entry: KbEntry = {
       id,
       title: this.newTitle,

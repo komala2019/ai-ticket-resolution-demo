@@ -108,6 +108,14 @@ export class TicketDetailComponent implements OnChanges {
       'TCK-2048': "Our Salesforce lead sync stopped right after your latest update — this is business-critical.",
       'TCK-2050': "I can't invite a teammate, the invite button is greyed out.",
     };
-    return q[this.ticket.id] || this.ticket.description || this.ticket.subject;
+    if (q[this.ticket.id]) return q[this.ticket.id];
+    
+    // For custom tickets, return description without the chat transcript details.
+    const desc = this.ticket.description || this.ticket.subject || '';
+    const idx = desc.indexOf('\n\n=== Chat Transcript ===');
+    if (idx !== -1) {
+      return desc.slice(0, idx);
+    }
+    return desc;
   }
 }

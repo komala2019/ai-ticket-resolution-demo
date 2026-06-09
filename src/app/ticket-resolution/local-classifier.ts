@@ -219,16 +219,88 @@ function urgencyToPriority(urgencyScore: number): string {
   return 'P3';
 }
 
-/** detectArea now augments static keywords with live KB tags so it improves as the KB grows. */
-function detectArea(haystack: string, kb?: KbEntry[]): string | null {
-  const areaKws = kb && kb.length > 0 ? buildAreaKeywords(kb) : AREA_KEYWORDS;
-  let bestArea: string | null = null;
-  let bestHits = 0;
-  for (const [area, kws] of Object.entries(areaKws)) {
-    const hits = kws.filter(k => haystack.includes(k)).length;
-    if (hits > bestHits) { bestHits = hits; bestArea = area; }
+function calculateIdf(kb: KbEntry[]): Record<string, number> {
+  const docCount = kb.length;
+  const df: Record<string, number> = {};
+  kb.forEach(entry => {
+    const entryText = `${entry.title} ${entry.content} ${(entry.tags || []).join(' ')}`;
+    const tokens = tokenize(entryText);
+    tokens.forEach(t => { df[t] = (df[t] || 0) + 1; });
+  });
+  const idf: Record<string, number> = {};
+  for (const [term, count] of Object.entries(df)) {
+    idf[term] = Math.log((1 + docCount) / (1 + count)) + 1;
   }
-  return bestArea;
+  return idf;
+}
+
+function getQueryVector(tokens: Set<string>, idf: Record<string, number>): Record<string, number> {
+  const vec: Record<string, number> = {};
+  tokens.forEach(t => { vec[t] = idf[t] || 1.0; });
+  return vec;
+}
+
+function getCosineSimilarity(vecA: Record<string, number>, vecB: Record<string, number>): number {
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  for (const [term, val] of Object.entries(vecA)) {
+    normA += val * val;
+    if (vecB[term]) dotProduct += val * vecB[term];
+  }
+  for (const val of Object.values(vecB)) {
+    normB += val * val;
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+function buildCentroids(kb: KbEntry[], idf: Record<string, number>): Record<string, Record<string, number>> {
+  const centroids: Record<string, Record<string, number>> = {};
+  for (const [area, kws] of Object.entries(AREA_KEYWORDS)) {
+    centroids[area] = {};
+    kws.forEach(kw => {
+      const term = norm(kw);
+      if (term.length > 2) centroids[area][term] = 6.0 * (idf[term] || 1.5);
+    });
+  }
+  kb.forEach(entry => {
+    let bestArea: string | null = null;
+    let maxHits = 0;
+    for (const [area, kws] of Object.entries(AREA_KEYWORDS)) {
+      const entryText = [...(entry.tags || []), entry.title || ''].join(' ').toLowerCase();
+      const hits = kws.filter(kw => entryText.includes(kw)).length;
+      if (hits > maxHits) { maxHits = hits; bestArea = area; }
+    }
+    if (bestArea) {
+      const entryText = `${entry.title} ${entry.content} ${(entry.tags || []).join(' ')}`;
+      const tokens = tokenize(entryText);
+      tokens.forEach(t => {
+        centroids[bestArea!][t] = (centroids[bestArea!][t] || 0) + (idf[t] || 1.0);
+      });
+    }
+  });
+  return centroids;
+}
+
+/** detectArea uses a vector-space TF-IDF cluster centroid cosine similarity context check. */
+function detectArea(haystack: string, kb?: KbEntry[]): string | null {
+  const activeKb = kb || [];
+  const idf = calculateIdf(activeKb);
+  const centroids = buildCentroids(activeKb, idf);
+  const queryTokens = tokenize(haystack);
+  if (queryTokens.size === 0) return null;
+  const queryVec = getQueryVector(queryTokens, idf);
+  let bestArea: string | null = null;
+  let maxSimilarity = 0;
+  for (const [area, centroidVec] of Object.entries(centroids)) {
+    const similarity = getCosineSimilarity(queryVec, centroidVec);
+    if (similarity > maxSimilarity) {
+      maxSimilarity = similarity;
+      bestArea = area;
+    }
+  }
+  return maxSimilarity > 0.05 ? bestArea : null;
 }
 
 /**
