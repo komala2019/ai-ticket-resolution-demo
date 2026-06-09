@@ -76,6 +76,17 @@ export const NEGATION_SIGNALS: string[] = [
   'did not help',
   'not what i need',
   'not relevant',
+  "wasn't helpful",
+  'was not helpful',
+  "isn't helpful",
+  'is not helpful',
+  "didn't work",
+  'did not work',
+  'not working',
+  'still broken',
+  "didn't fix",
+  'did not fix',
+  'useless',
 ];
 
 export function isNegationQuery(message: string): boolean {

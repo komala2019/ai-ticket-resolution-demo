@@ -24,7 +24,10 @@ const BUG_SYMPTOM_KEYWORDS = [
 
 const NEGATION_SIGNALS = [
   'issue is different', 'different issue', 'not my issue', "that's not it",
-  'wrong issue', 'different problem', 'wrong article', 'not relevant', 'incorrect'
+  'wrong issue', 'different problem', 'wrong article', 'not relevant', 'incorrect',
+  "wasn't helpful", 'was not helpful', "isn't helpful", 'is not helpful',
+  "didn't work", 'did not work', 'not working', 'still broken', "didn't fix",
+  'did not fix', 'useless'
 ];
 
 function isVagueQuery(message) {
