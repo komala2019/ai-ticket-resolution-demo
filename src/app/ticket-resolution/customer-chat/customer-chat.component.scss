@@ -34,7 +34,7 @@
   display: inline-block;
 }
 
-.replay-btn {
+.refresh-btn, .replay-btn {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -492,10 +492,10 @@
   .header-sub-text {
     display: none;
   }
-  .replay-text {
+  .refresh-text, .replay-text {
     display: none;
   }
-  .replay-btn {
+  .refresh-btn, .replay-btn {
     padding: 7px;
   }
   .classify-layout-content {

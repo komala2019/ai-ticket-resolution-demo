@@ -529,17 +529,20 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
             this.activeSubChips = chipFollow.subChips;
             clarifyText = chipFollow.question;
           } else {
-            const areaChips = AREA_SUBCHIPS[area];
-            if (areaChips) {
+            const areaChips = area !== 'General' ? AREA_SUBCHIPS[area] : null;
+            const bestKb = localResult ? localResult.bestKb : (kbId ? this.demo.kb.find(k => k.id === kbId) : null);
+            const kbTitle = bestKb?.title;
+            const kbContent = bestKb?.content;
+            const kbFirstStep = bestKb?.steps?.[0] || 'Check the settings or steps for this feature.';
+
+            if (areaChips && areaChips.length > 0) {
               this.activeSubChips = [...areaChips];
-              const kbTitle = localResult?.bestKb?.title;
               clarifyText = kbTitle
-                ? `I found something that might match — **${kbTitle}**. Which of these best describes your specific issue?`
+                ? `I found a potential match — **${kbTitle}**.\n\nThis usually happens because: *${kbContent}*\n\nTry this next: **${kbFirstStep}**.\n\nDoes that help, or does one of these best describe your issue?`
                 : `I can see this is in the **${area}** area. Which of these best describes your issue?`;
             } else {
-              const kbTitle = localResult?.bestKb?.title;
               clarifyText = kbTitle
-                ? `I found something that might match — **${kbTitle}**. Could you confirm that's your issue, or describe what's happening in more detail?`
+                ? `I found a potential match — **${kbTitle}**.\n\nThis usually happens because: *${kbContent}*\n\nTry this next: **${kbFirstStep}**.\n\nDoes that help, or could you describe what's happening in more detail?`
                 : `I can see this is in the **${area}** area, but I need a bit more detail to find the right fix.`;
             }
           }
@@ -830,15 +833,9 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     }
     // After a chip-specific clarification: show the targeted sub-chips the bot asked about.
     if (this.activeSubChips) return [...this.activeSubChips, 'Different issue'];
-    // Before any user interaction: generic topic starters
+    // Before any user interaction: show active KB titles upfront as potential known issues
     if (this.n <= 1) {
-      return [
-        'Booking engine issue',
-        'Analytics not loading',
-        'Login / account problem',
-        'Email campaign error',
-        'Integration not working',
-      ];
+      return this.demo.kb.map(k => k.title);
     }
     // After escalation status message: follow-up options
     if (this.last?.kind === 'status') {
@@ -978,7 +975,8 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     this.startPlayback();
   }
 
-  replay() { this.selectScenario(this.sid); }
+  refresh() { this.selectScenario(this.sid); }
+  replay() { this.refresh(); }
 
   private startPlayback() {
     clearTimeout(this.timer);
