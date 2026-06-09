@@ -74,11 +74,11 @@ export const KB = [
 // ── Classifier constants ──────────────────────────────────────────────────────
 
 const AREA_KEYWORDS = {
-  'Booking engine': ['booking', 'widget', 'reserve', 'reservation', 'rate plan', 'checkout', 'currency', 'price', 'pricing', 'cost', 'rate', 'charge'],
-  'Analytics':      ['analytics', 'dashboard', 'chart', 'report', 'graph', 'render', 'blank', 'spinner'],
-  'Email campaigns':['email', 'campaign', 'segment', 'newsletter', 'send', 'unsubscribe'],
-  'Integrations':   ['integration', 'salesforce', 'sync', 'api', 'webhook', 'crm', 'connector'],
-  'Account':        ['account', 'invite', 'seat', 'billing', 'login', 'password', 'user', 'permission'],
+  'Booking engine': ['booking', 'widget', 'reserve', 'reservation', 'rate plan', 'checkout', 'currency', 'price', 'pricing', 'cost', 'rate', 'charge', 'pay', 'checkout', 'book', 'guests', 'room'],
+  'Analytics':      ['analytics', 'dashboard', 'chart', 'report', 'graph', 'render', 'blank', 'spinner', 'loading', 'stats', 'data', 'metrics', 'views'],
+  'Email campaigns':['email', 'campaign', 'segment', 'newsletter', 'send', 'unsubscribe', 'mail', 'dispatch', 'double', 'twice', 'duplicate'],
+  'Integrations':   ['integration', 'salesforce', 'sync', 'api', 'webhook', 'crm', 'connector', 'zapier', 'hubspot', 'connect', 'syncing'],
+  'Account':        ['account', 'invite', 'seat', 'billing', 'login', 'password', 'user', 'permission', 'invoice', 'plan', 'subscription', 'members', 'access', 'role', 'team', 'teammate', 'sign'],
 };
 
 export const NOVEL_SIGNALS = [

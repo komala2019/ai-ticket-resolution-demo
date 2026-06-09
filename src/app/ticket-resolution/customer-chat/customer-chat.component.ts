@@ -2,7 +2,7 @@ import { Component, Input, OnChanges, OnDestroy, ViewChild, ElementRef } from '@
 import { Subscription } from 'rxjs';
 import { SCENARIOS, TYPE_META, routeFor, Thresholds, ScenarioStep, Scenario, QueueTicket } from '../ticket-data';
 import { TicketResolutionApiService } from '../ticket-resolution-api.service';
-import { classifyIssue, isBugIntent, isVagueQuery, isNegationQuery, isChitChat, parseResolutionText, LocalClassifyResult, BUG_SYMPTOM_KEYWORDS, NOVEL_SIGNALS, hydrateScenario } from '../local-classifier';
+import { classifyIssue, isBugIntent, isVagueQuery, isNegationQuery, isChitChat, parseResolutionText, LocalClassifyResult, BUG_SYMPTOM_KEYWORDS, NOVEL_SIGNALS, hydrateScenario, scoreKb } from '../local-classifier';
 import { DemoStateService } from '../demo-state.service';
 
 type OutcomeKind = 'fixed' | 'notify' | 'failed' | null;
@@ -535,14 +535,27 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
             const kbContent = bestKb?.content;
             const kbFirstStep = bestKb?.steps?.[0] || 'Check the settings or steps for this feature.';
 
+            const otherTitles = isOffline
+              ? scoreKb(classifyMsg, this.demo.kb, this.excludedKbIds)
+                  .slice(1, 4) // next 3 matches
+                  .map(s => s.entry.title)
+              : [];
+
+            let otherMatchesText = '';
+            if (otherTitles.length > 0) {
+              otherMatchesText = `\n\n**Other potential matches:**\n` +
+                otherTitles.map(t => `• **${t}**`).join('\n');
+            }
+
             if (areaChips && areaChips.length > 0) {
-              this.activeSubChips = [...areaChips];
+              this.activeSubChips = [...otherTitles, ...areaChips];
               clarifyText = kbTitle
-                ? `I found a potential match — **${kbTitle}**.\n\nThis usually happens because: *${kbContent}*\n\nTry this next: **${kbFirstStep}**.\n\nDoes that help, or does one of these best describe your issue?`
+                ? `I found a potential match — **${kbTitle}**.\n\nThis usually happens because: *${kbContent}*\n\nTry this next: **${kbFirstStep}**.${otherMatchesText}\n\nDoes that help, or does one of these best describe your issue?`
                 : `I can see this is in the **${area}** area. Which of these best describes your issue?`;
             } else {
+              this.activeSubChips = otherTitles.length > 0 ? [...otherTitles] : null;
               clarifyText = kbTitle
-                ? `I found a potential match — **${kbTitle}**.\n\nThis usually happens because: *${kbContent}*\n\nTry this next: **${kbFirstStep}**.\n\nDoes that help, or could you describe what's happening in more detail?`
+                ? `I found a potential match — **${kbTitle}**.\n\nThis usually happens because: *${kbContent}*\n\nTry this next: **${kbFirstStep}**.${otherMatchesText}\n\nDoes that help, or could you describe what's happening in more detail?`
                 : `I can see this is in the **${area}** area, but I need a bit more detail to find the right fix.`;
             }
           }

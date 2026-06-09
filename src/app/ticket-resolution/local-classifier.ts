@@ -12,11 +12,11 @@ import { KbEntry, Thresholds, routeFor, DEFAULT_THRESHOLDS, QueueTicket } from '
 import { Scenario, ScenarioStep } from './ticket-data';
 
 const AREA_KEYWORDS: Record<string, string[]> = {
-  'Booking engine': ['booking', 'widget', 'reserve', 'reservation', 'rate plan', 'checkout', 'currency', 'price', 'pricing', 'cost', 'rate', 'charge'],
-  'Analytics': ['analytics', 'dashboard', 'chart', 'report', 'graph', 'render', 'blank', 'spinner'],
-  'Email campaigns': ['email', 'campaign', 'segment', 'newsletter', 'send', 'unsubscribe'],
-  'Integrations': ['integration', 'salesforce', 'sync', 'api', 'webhook', 'crm', 'connector'],
-  'Account': ['account', 'invite', 'seat', 'billing', 'login', 'password', 'user', 'permission'],
+  'Booking engine': ['booking', 'widget', 'reserve', 'reservation', 'rate plan', 'checkout', 'currency', 'price', 'pricing', 'cost', 'rate', 'charge', 'pay', 'checkout', 'book', 'guests', 'room'],
+  'Analytics': ['analytics', 'dashboard', 'chart', 'report', 'graph', 'render', 'blank', 'spinner', 'loading', 'stats', 'data', 'metrics', 'views'],
+  'Email campaigns': ['email', 'campaign', 'segment', 'newsletter', 'send', 'unsubscribe', 'mail', 'dispatch', 'double', 'twice', 'duplicate'],
+  'Integrations': ['integration', 'salesforce', 'sync', 'api', 'webhook', 'crm', 'connector', 'zapier', 'hubspot', 'connect', 'syncing'],
+  'Account': ['account', 'invite', 'seat', 'billing', 'login', 'password', 'user', 'permission', 'invoice', 'plan', 'subscription', 'members', 'access', 'role', 'team', 'teammate', 'sign'],
 };
 
 export const NOVEL_SIGNALS: { phrase: string; weight: number }[] = [
@@ -334,7 +334,7 @@ function detectArea(haystack: string, kb?: KbEntry[]): string | null {
  * A query whose tokens perfectly cover a title + content scores 90+.
  * An unrelated query scores near 0. No magic constants needed.
  */
-function scoreKb(haystack: string, kb: KbEntry[], excludeIds: Set<string> = new Set()): ScoredEntry[] {
+export function scoreKb(haystack: string, kb: KbEntry[], excludeIds: Set<string> = new Set()): ScoredEntry[] {
   const queryTokens = tokenize(haystack);
   if (queryTokens.size === 0) return [];
   const queryArr = Array.from(queryTokens);
