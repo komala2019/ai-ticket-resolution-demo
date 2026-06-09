@@ -810,7 +810,8 @@
     &.expanded { background: #141414; }
   }
   .known-issue-row:hover { background: #2b2210; }
-  .known-issue-title { color: var(--gray-100, #f3f4f6); }
+  .known-issue-title { color: #e5e7eb; }
+  .ki-chevron { color: #9ca3af; }
   .eta-badge {
     background: #2b2210;
     border-color: #3d3010;
@@ -821,7 +822,7 @@
     border-color: #3a3a3a;
     color: #9ca3af;
   }
-  .known-issue-desc { color: var(--gray-400, #9ca3af); }
+  .known-issue-desc { color: #9ca3af; }
   .ki-workaround {
     background: #111111;
     border-color: #3a3a3a;
