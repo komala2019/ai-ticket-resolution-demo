@@ -40,15 +40,18 @@
     </div>
 
     <!-- Known Issues Panel — shown before classification and again after an outcome -->
-    <div *ngIf="(!classified || outcome) && knownBugs.length" class="known-issues-panel">
-      <div class="known-issues-header">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--warning-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+    <div *ngIf="(!classified || outcome) && knownBugs.length" class="known-issues-panel" [class.panel-open]="knownPanelOpen">
+      <button class="known-issues-header" (click)="knownPanelOpen = !knownPanelOpen">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--warning-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
           <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
         </svg>
-        <span class="known-issues-label">Known issues we're actively tracking</span>
+        <span class="known-issues-label">Known issues we're tracking</span>
         <span class="known-issues-count">{{ knownBugs.length }}</span>
-      </div>
-      <div class="known-issues-list">
+        <svg class="ki-panel-chevron" [class.open]="knownPanelOpen" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--warning-600)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto;flex-shrink:0;">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+      <div *ngIf="knownPanelOpen" class="known-issues-list">
         <div *ngFor="let kb of knownBugs" class="known-issue-item" [class.expanded]="expandedKnownIssueId === kb.id">
           <button class="known-issue-row" (click)="toggleKnownIssue(kb.id)">
             <span class="known-issue-title">{{ kb.title }}</span>

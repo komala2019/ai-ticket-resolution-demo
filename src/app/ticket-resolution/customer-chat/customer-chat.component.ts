@@ -888,6 +888,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   }
 
   // ── Known Issues upfront panel ──────────────────────────────────────────────
+  knownPanelOpen = false;
   expandedKnownIssueId: string | null = null;
 
   get knownBugs(): KbEntry[] {
@@ -1046,6 +1047,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     this.lastConfidence = 0;
     this.excludedKbIds = new Set();
     this.activeSubChips = null;
+    this.knownPanelOpen = false;
     this.expandedKnownIssueId = null;
     this.formSubject = '';
     this.formArea = '';

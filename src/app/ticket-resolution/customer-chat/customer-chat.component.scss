@@ -254,7 +254,20 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px 8px;
+  padding: 7px 12px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background .12s;
+  &:hover { background: var(--warning-50, #FFFAEB); }
+}
+
+.ki-panel-chevron {
+  transition: transform .2s ease;
+  &.open { transform: rotate(180deg); }
 }
 
 .known-issues-label {
@@ -783,6 +796,7 @@
     background: #1e1a0f;
     border-bottom-color: #3d3010;
   }
+  .known-issues-header { &:hover { background: #2b2210; } }
   .known-issues-header svg { stroke: #d4a043; }
   .known-issues-label { color: #d4a043; }
   .known-issues-count {
