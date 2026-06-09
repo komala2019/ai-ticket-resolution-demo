@@ -44,6 +44,15 @@
     --purple-500:    #B9A7FC;
     --purple-200:    rgba(122, 90, 248, .35);
     --purple-50:     rgba(122, 90, 248, .18);
+
+    /* Amber / warning — remap so known-issues panel and badges read correctly */
+    --warning-25:    #1a1500;
+    --warning-50:    #241c00;
+    --warning-100:   #3a2d00;
+    --warning-200:   #52400a;
+    --warning-500:   #d4a043;
+    --warning-600:   #c47f2a;
+    --warning-700:   #f0c06a;
   }
 }
 

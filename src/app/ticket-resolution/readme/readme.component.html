@@ -140,43 +140,43 @@
   <section class="doc-card">
     <h2 class="doc-h2">Key Features</h2>
     <p class="doc-p" style="margin-bottom: 16px;">
-      Each feature below is live in this build and observable during a normal demo walkthrough.
+      Everything below is live in this build and visible during a normal demo walkthrough.
     </p>
     <div class="flow-grid">
       <div class="flow-step">
         <div>
-          <div class="flow-title">Known issues upfront panel</div>
-          <div class="flow-text">Zero-typing self-service for KB known-bug entries. Active bugs appear as an accordion before the customer types a single word.</div>
+          <div class="flow-title">Known issues shown upfront</div>
+          <div class="flow-text">Active known bugs appear as a collapsible panel before the customer types anything. One click on a known issue takes them straight to the workaround — no messages needed.</div>
         </div>
       </div>
       <div class="flow-step">
         <div>
-          <div class="flow-title">Multi-level chip drill-down</div>
-          <div class="flow-text">Area chips expand to sub-chips which feed into classification — no clarification loops. Hard cap at two rounds.</div>
+          <div class="flow-title">Guided topic chips</div>
+          <div class="flow-text">Generic area chips narrow down to specific sub-topics through conversation, helping the assistant understand intent without making customers fill in long forms or wait through multiple back-and-forths.</div>
         </div>
       </div>
       <div class="flow-step">
         <div>
-          <div class="flow-title">Markdown rendering in AI messages</div>
-          <div class="flow-text">Bold, italic, and bullet syntax in AI replies is rendered safely in chat bubbles via MarkdownPipe and DomSanitizer.</div>
+          <div class="flow-title">Formatted AI replies</div>
+          <div class="flow-text">AI responses display with bold headings, italics, and step-by-step bullets — rendered safely so formatting looks clean without security risks.</div>
         </div>
       </div>
       <div class="flow-step">
         <div>
-          <div class="flow-title">Human / agent handoff</div>
-          <div class="flow-text">The "Human" button connects to Maya (support specialist), who replies contextually. Auto follow-up fires after placeholder replies.</div>
+          <div class="flow-title">Live agent handoff</div>
+          <div class="flow-text">The "Human" button connects the customer to Maya (support specialist) mid-conversation. She replies in context, and follows up automatically if her first reply is a placeholder.</div>
         </div>
       </div>
       <div class="flow-step">
         <div>
-          <div class="flow-title">State persistence across tabs</div>
-          <div class="flow-text">Chat uses <code>[hidden]</code> not <code>*ngIf</code> so Angular never destroys the component. Conversation state survives view switches to the CS console and back.</div>
+          <div class="flow-title">Chat history survives tab switches</div>
+          <div class="flow-text">Switching to the CS console and back does not reset the conversation. The entire chat history, classification state, and scroll position are preserved exactly as left.</div>
         </div>
       </div>
       <div class="flow-step">
         <div>
-          <div class="flow-title">Live analytics + notifications</div>
-          <div class="flow-text">Resolve, reopen, and escalate actions update KPI cards and the topbar bell instantly. Each notification can be dismissed individually.</div>
+          <div class="flow-title">Live analytics and notifications</div>
+          <div class="flow-text">Every resolve, reopen, and escalation instantly updates the KPI cards and the notification bell. Notifications can be dismissed one by one.</div>
         </div>
       </div>
     </div>
@@ -215,36 +215,36 @@
       <div class="flow-step">
         <span class="flow-num">1</span>
         <div>
-          <div class="flow-title">Check the known issues panel</div>
-          <div class="flow-text">Open Customer view and click "Analytics dashboard blank on Chrome 124+" in the known issues accordion. Hit the workaround button to see zero-typing self-service.</div>
+          <div class="flow-title">Try the known issues panel</div>
+          <div class="flow-text">Open Customer view and expand the "Known issues we're tracking" bar at the top. Click either item and hit the workaround button — the resolution happens instantly with no conversation needed.</div>
         </div>
       </div>
       <div class="flow-step">
         <span class="flow-num">2</span>
         <div>
-          <div class="flow-title">Try the customer flow</div>
-          <div class="flow-text">Type "booking widget disappeared" and follow the assistant through the fix steps.</div>
+          <div class="flow-title">Describe an issue in plain language</div>
+          <div class="flow-text">Type something like "my booking widget disappeared after publishing" and follow the assistant through the fix. The assistant finds the right KB article and walks through the steps.</div>
         </div>
       </div>
       <div class="flow-step">
         <span class="flow-num">3</span>
         <div>
           <div class="flow-title">Trigger a reopen</div>
-          <div class="flow-text">Run the same scenario again and click "Still broken" to see KB flagging and the accuracy metric drop live.</div>
+          <div class="flow-text">After resolving, click "Still broken" to see the KB article get flagged for review and the accuracy metric drop live in the analytics tab.</div>
         </div>
       </div>
       <div class="flow-step">
         <span class="flow-num">4</span>
         <div>
-          <div class="flow-title">Use sub-chips</div>
-          <div class="flow-text">Type "Analytics" or click "Wrong data shown" to see the area chip expand into sub-chips and feed into a classification — the two-level drill-down in action.</div>
+          <div class="flow-title">Use the topic chips</div>
+          <div class="flow-text">Click the "Analytics data looks off" starter chip and follow the narrowing sub-chips the assistant suggests. Notice how the conversation zeroes in on the specific issue without asking you to type a detailed description.</div>
         </div>
       </div>
       <div class="flow-step">
         <span class="flow-num">5</span>
         <div>
-          <div class="flow-title">Review the console</div>
-          <div class="flow-text">Switch to CS console and inspect the Approval Queue, KB Manager, Analytics (hover card titles for formula tooltips), and Golden Set regression suite.</div>
+          <div class="flow-title">Review the agent console</div>
+          <div class="flow-text">Switch to CS Console and walk through the Approval Queue, KB Manager, Analytics (hover card titles for formula breakdowns), and the Golden Set regression suite.</div>
         </div>
       </div>
     </div>

@@ -24,34 +24,34 @@ export class ArchitectureComponent {
       name: 'Presentation Layer',
       tone: 'blue',
       accent: 'var(--primary-600)',
-      blurb: 'The interactive screens that customers and support agents use.',
+      blurb: 'The screens customers and support agents interact with.',
       items: [
-        { label: 'Customer Chat', sub: 'Known-issues panel + sub-chip drill-down + MarkdownPipe rendering + Human/Maya handoff' },
-        { label: 'CS Console', sub: 'Approval Queue, KB Manager, Analytics with hover tooltips, Golden Set regression suite' },
-        { label: 'Architecture & README docs', sub: 'In-app reference covering system design decisions, flow, and how-to-test guidance' },
+        { label: 'Customer Chat', sub: 'Conversational support window — shows known issues upfront, guides users through topic chips, formats AI replies, and hands off to a live agent on request' },
+        { label: 'CS Console', sub: 'Agent workspace — approval queue for AI drafts, knowledge base editor, live analytics with explanatory tooltips, and a regression test suite' },
+        { label: 'Architecture & README', sub: 'In-app documentation covering system design decisions, resolution flow, and step-by-step test walkthroughs' },
       ],
     },
     {
       name: 'Intelligence & Routing',
       tone: 'purple',
       accent: 'var(--purple-500)',
-      blurb: 'The logic that classifies messages, routes tickets, and generates or falls back to offline responses.',
+      blurb: 'The classification and response layer that decides what every message means and where it should go.',
       items: [
-        { label: 'local-classifier.ts', sub: 'TF-IDF keyword scoring, isBugIntent, isVagueQuery, isChitChat, AREA_SUBCHIPS + CHIP_FOLLOW_UPS drill-down, pre-escalation + pre-resolution clarification' },
-        { label: 'Routing engine', sub: '4-band threshold triage: auto-resolve (≥90) / CS approve (75–89) / CS rewrite (50–74) / eng queue (<50)' },
-        { label: 'TicketResolutionApiService', sub: 'Online Claude/OpenAI draft generation with transparent offline fallback to local classifier' },
-        { label: 'MarkdownPipe', sub: 'DomSanitizer.bypassSecurityTrustHtml — renders **bold**, *italic*, • bullets safely in chat bubbles' },
+        { label: 'Classifier', sub: 'Keyword-based scoring against the knowledge base — detects vague messages, chit-chat, and product area, then guides the conversation toward a specific issue before classifying' },
+        { label: 'Routing engine', sub: 'Splits every classified ticket into one of four confidence bands: auto-resolve, CS approval, CS rewrite, or engineering escalation' },
+        { label: 'API service', sub: 'Sends the message and matching KB context to a Claude or OpenAI backend for a draft response — falls back gracefully to the offline classifier when unreachable' },
+        { label: 'Message formatter', sub: 'Converts AI reply text containing bold, italic, and bullet syntax into safe rendered HTML shown in chat bubbles — injected scripts cannot execute' },
       ],
     },
     {
       name: 'Shared State & Data',
       tone: 'green',
       accent: 'var(--success-600)',
-      blurb: 'The singleton service and static data files that power the entire demo.',
+      blurb: 'The single data layer that keeps every tab in sync.',
       items: [
-        { label: 'DemoStateService', sub: 'Live KB, queue, metrics, notifications with per-item dismissal, activity log — single source of truth' },
-        { label: 'ticket-data.ts', sub: 'KB-001–004, SCENARIOS (type1/type2/type3), QUEUE, METRICS, TREND baseline data' },
-        { label: 'golden-set.ts', sub: 'Regression cases run live against the classifier on every threshold change in the Golden Set tab' },
+        { label: 'Demo state service', sub: 'One shared store for the knowledge base, ticket queue, analytics counters, notifications, and activity log — changes in one tab reflect everywhere instantly' },
+        { label: 'Knowledge base & scenarios', sub: 'Four KB articles (booking, analytics, email, account) and pre-built demo scenarios covering all three resolution types' },
+        { label: 'Golden test set', sub: '14 labeled test cases run live against the classifier so you can see how threshold changes affect routing in real time' },
       ],
     },
   ];
@@ -82,32 +82,32 @@ export class ArchitectureComponent {
 
   decisions = [
     {
-      title: 'Known issues shown before first message',
-      body: 'Before the customer types, active known-bug KB entries appear as an accordion. One click on "This is my issue" jumps straight to the workaround card using a synthetic __known scenario, cutting zero-value chat turns.',
+      title: 'Known issues appear before the customer types',
+      body: 'Active known-bug entries from the knowledge base are shown as a collapsible panel above the chat before the conversation starts. The customer can tap straight to the workaround with zero typing — bypassing classification entirely for issues the team is already tracking.',
     },
     {
-      title: '[hidden] not *ngIf for chat state persistence',
-      body: 'The customer chat component uses [hidden] instead of *ngIf so Angular never destroys it when the user switches to the CS console. All rephraseCount, chipLabel, and SCENARIOS state survives tab switches.',
+      title: 'Chat history survives tab switches',
+      body: 'The customer chat view is hidden when the agent navigates to the CS console, not destroyed. Conversation history, classification state, and scroll position all survive the switch and come back exactly as they were.',
     },
     {
-      title: 'Multi-level chip drill-down prevents clarification loops',
-      body: 'Area chips (AREA_SUBCHIPS) → sub-chips (CHIP_FOLLOW_UPS) form a two-level guided tree. Once the user picks a sub-chip, rephraseCount is set to a sentinel value (3) and the intentChanged reset is skipped, so the pre-escalation branch never re-fires mid drill-down.',
+      title: 'Topic chips eliminate clarification loops',
+      body: 'When the classifier is uncertain, it shows broad area chips (Booking engine, Analytics…) then narrower sub-topic chips for the chosen area. Once the user picks a sub-topic the system classifies immediately — there is no way to get stuck in a loop asking the same question twice.',
     },
     {
-      title: 'All classification runs offline-first',
-      body: 'The local classifier (TF-IDF keyword overlap + NOVEL_SIGNALS + isVagueQuery) runs on every message. The Claude/OpenAI backend is optional; if unreachable, the classifier\'s result is used directly, keeping the demo fully interactive offline.',
+      title: 'The demo works without internet',
+      body: 'A keyword-based classifier runs entirely in the browser. If the cloud AI backend is unreachable, the app generates answers from the local knowledge base with no visible error — useful for demos where network access is unreliable.',
     },
     {
-      title: 'DemoStateService as single source of truth',
-      body: 'KB edits, queue updates, ticket resolutions, and notification dismissals all mutate the same singleton service. The analytics dashboard subscribes to activity$ and re-renders live KPI cards the moment an action fires.',
+      title: 'One service owns all shared state',
+      body: 'Resolving a ticket, editing a KB article, dismissing a notification, or reopening a case all update the same shared store. The analytics dashboard and the CS console read from the same live source — no manual sync between tabs.',
     },
     {
-      title: 'MarkdownPipe for safe AI message rendering',
-      body: 'AI message text containing **bold**, *italic*, and • bullet syntax is passed through MarkdownPipe, which escapes HTML first then converts markdown, then calls DomSanitizer.bypassSecurityTrustHtml — preventing XSS while enabling rich formatting.',
+      title: 'AI reply text is rendered safely',
+      body: 'AI messages can include bold headings, italic text, and bulleted steps. A formatter converts this syntax to HTML before display, but strips any raw HTML first so injected scripts cannot execute in the customer\'s browser.',
     },
     {
-      title: 'Angular-driven tooltips replace CSS ::after',
-      body: 'Analytics dashboard info icons use mouseenter/mouseleave + Angular *ngIf to render tooltip boxes below cards. This avoids the CSS ::after z-index/overflow problem where tooltips flew into the navigation bar.',
+      title: 'Dashboard tooltips appear below cards, not above',
+      body: 'Info tooltips on analytics cards are positioned below each card by the framework rather than by CSS. This avoids a common layout pitfall where "above the card" means "overlapping the navigation bar" for cards in the top row.',
     },
   ];
 
@@ -115,40 +115,40 @@ export class ArchitectureComponent {
     {
       title: 'Classification & Knowledge Retrieval',
       implemented: [
-        { label: 'TF-IDF keyword scoring', desc: 'Weighted keyword overlap between the customer message and KB article content and tags.' },
-        { label: 'AREA_SUBCHIPS + CHIP_FOLLOW_UPS drill-down', desc: 'Two-level guided clarification tree covering 5 product areas — no clarification loops.' },
-        { label: 'Known-bug upfront panel', desc: 'Zero-click workaround for known KB entries displayed as an accordion before the conversation starts.' },
-        { label: 'Exclusion list', desc: 'KB IDs excluded from future matches after "Still broken" fires in the same session.' },
+        { label: 'Keyword matching', desc: 'Weighted keyword overlap scores each customer message against every KB article to find the closest match.' },
+        { label: 'Two-level topic guidance', desc: 'Broad area chips expand into specific sub-topic chips across five product areas — eliminates clarification loops.' },
+        { label: 'Known-issue panel', desc: 'Zero-typing path to workarounds: active known bugs appear as a collapsible panel before the conversation starts.' },
+        { label: 'Exclusion list', desc: 'Articles matched in a previous attempt are skipped after the customer says "Still broken" — avoids serving the same answer twice.' },
       ],
       pending: [
-        { label: 'Semantic vector embeddings', desc: 'Cosine similarity via OpenAI text-embedding-3-small — replaces keyword overlap for better multi-word matching.' },
-        { label: 'Dedicated vector DB', desc: 'pgvector or Pinecone for sub-50ms KB retrieval at scale.' },
+        { label: 'Semantic search', desc: 'Similarity-based retrieval against article embeddings — better multi-word and paraphrase matching than keyword overlap alone.' },
+        { label: 'Vector database', desc: 'Dedicated article index for sub-50 ms retrieval at production scale.' },
       ],
     },
     {
       title: 'AI Response Generation',
       implemented: [
-        { label: 'Claude/OpenAI online draft generation', desc: 'TicketResolutionApiService sends message + KB context to /api/chat for a structured reply.' },
-        { label: 'Offline fallback classifier', desc: 'local-classifier.ts produces headline, intro, and workaround steps without an LLM when the backend is unreachable.' },
-        { label: 'MarkdownPipe', desc: 'Bold, italic, and bullet syntax rendered safely in chat bubbles via DomSanitizer.' },
-        { label: 'Simulated agent replies', desc: 'getSimulatedAgentReply + getMayaFollowUpReply handle human-handoff turns contextually with auto follow-up.' },
+        { label: 'Cloud AI backend', desc: 'Sends the message and matching KB context to a Claude or OpenAI endpoint and returns a structured draft reply.' },
+        { label: 'Offline fallback', desc: 'Generates a complete headline, introduction, and step-by-step workaround locally when the backend is unreachable.' },
+        { label: 'Rich text formatting', desc: 'Bold, italic, and bullet syntax in AI replies is rendered safely in chat bubbles.' },
+        { label: 'Simulated agent replies', desc: 'Human-handoff turns are handled with contextual auto-responses and a follow-up when the first reply is a placeholder.' },
       ],
       pending: [
-        { label: 'Structured output via tool_use', desc: 'Force Claude to return JSON matching ScenarioStep schema — eliminates the parseResolutionText regex.' },
-        { label: 'Feedback-loop fine-tuning', desc: 'Feed approved drafts and confirmed resolutions back as few-shot examples to improve future generation.' },
+        { label: 'Structured AI output', desc: 'Force the AI to return typed JSON — removes the text-parsing step and makes response handling more reliable.' },
+        { label: 'Feedback fine-tuning', desc: 'Feed approved drafts and confirmed resolutions back as few-shot examples to improve future AI responses.' },
       ],
     },
     {
       title: 'State, Safety & Observability',
       implemented: [
-        { label: 'DemoStateService singleton', desc: 'Live KB, queue, notifications with per-item dismiss, activity log, and analytics counters all in one place.' },
-        { label: 'Golden Set regression suite', desc: '14 labeled cases run against the live classifier on every threshold change in the Golden Set tab.' },
-        { label: '[hidden]-based chat persistence', desc: 'Conversation state survives view switches without component re-mount.' },
-        { label: 'Chit-chat detection + adversarial guard', desc: 'isChitChat redirects to human; no KB match + injection prompt pattern routes to escalation.' },
+        { label: 'Shared state service', desc: 'Knowledge base, queue, notifications, and analytics counters in one place — every tab reads from the same live source.' },
+        { label: 'Golden set regression suite', desc: '14 labeled test cases run against the live classifier so threshold changes are immediately reflected in results.' },
+        { label: 'Chat state persistence', desc: 'Conversation state survives view switches — the chat is hidden while away, not re-mounted.' },
+        { label: 'Chit-chat and injection guard', desc: 'Off-topic messages redirect to a human agent; prompt injection patterns are routed to escalation rather than the KB.' },
       ],
       pending: [
-        { label: 'Multi-turn conversation memory', desc: 'Store last N turns in a structured context window so follow-up messages have full conversation history.' },
-        { label: 'Automated safety evaluation', desc: 'Nightly CI run of golden set against staging KB; fails build if pass rate drops below threshold.' },
+        { label: 'Multi-turn memory', desc: 'Store the last N turns in context so follow-up messages build naturally on what was already discussed.' },
+        { label: 'Automated safety evaluation', desc: 'Nightly test run of the golden set against staging — fails the build if the pass rate drops below a set threshold.' },
       ],
     },
   ];

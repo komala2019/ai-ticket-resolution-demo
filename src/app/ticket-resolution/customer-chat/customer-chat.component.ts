@@ -10,6 +10,21 @@ type OutcomeKind = 'fixed' | 'notify' | 'failed' | null;
 const SLA_BY_PRIORITY: Record<string, string> = { P1: '1-hour', P2: '4-hour', P3: '24-hour' };
 const AGENT_EXTRA_SIGNALS = ['sync', 'still broken'];
 
+/**
+ * Generic starter chips shown before the first message.
+ * Each phrase is designed to be:
+ *  - Detected as a support query (area keyword triggers isBugIntent)
+ *  - Vague enough (3-4 words, no BUG_SYMPTOM_KEYWORDS) to route through the
+ *    AREA_SUBCHIPS drill-down rather than straight to classification
+ */
+const STARTER_CHIPS: string[] = [
+  'Booking engine not loading',
+  'Analytics data looks off',
+  'Email campaigns acting up',
+  'Account access not working',
+  'Integration not syncing',
+];
+
 /** Area-level sub-chips shown when a generic area starter fires at low confidence (maps to CHIP_FOLLOW_UPS keys). */
 const AREA_SUBCHIPS: Record<string, string[]> = {
   'Booking engine': ['Widget still missing',  'Rate plan problem',    'Currency at checkout', 'Different page issue'],
@@ -840,16 +855,18 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   }
   /** Contextual quick-reply chips — shown throughout the custom chat, not just at the start. */
   get dynamicChips(): string[] {
-    // After an outcome (resolved / failed / notified) — show known issues again
-    // so the user can easily pick another topic without retyping.
+    // After an outcome (resolved / failed / notified) — show generic starters so the
+    // user can easily report a new issue without retyping a full description.
     if (this.outcome) {
-      return this.demo.kb.map(k => k.title);
+      return [...STARTER_CHIPS];
     }
     // After a chip-specific clarification: show the targeted sub-chips the bot asked about.
     if (this.activeSubChips) return [...this.activeSubChips, 'Different issue'];
-    // Before any user interaction: show active KB titles upfront as potential known issues
+    // Before any user interaction: show generic area-level starters.
+    // These are intentionally brief and vague so the classifier routes through
+    // the AREA_SUBCHIPS drill-down rather than jumping straight to a KB match.
     if (this.n <= 1) {
-      return this.demo.kb.map(k => k.title);
+      return [...STARTER_CHIPS];
     }
     // After escalation status message: follow-up options
     if (this.last?.kind === 'status') {
