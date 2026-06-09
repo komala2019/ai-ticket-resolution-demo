@@ -403,9 +403,8 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         this.halted = false;
 
       // ── Branch: vague bug — ask for more detail ────────────────────────────
-      // Allow a 3rd round only when confidence genuinely improved on the 2nd round.
-      // Compare BEFORE updating lastConfidence so we don't always see improvement vs 0.
-      } else if (isVague && this.rephraseCount < (this.rephraseCount === 2 && score > this.lastConfidence ? 3 : 2)) {
+      // Hard-cap at 2 rounds; never loop when the user is answering a sub-chip.
+      } else if (isVague && this.rephraseCount < 2 && !(chipLabel && this.rephraseCount >= 1)) {
         const chipFollow = chipLabel ? CHIP_FOLLOW_UPS[chipLabel] : null;
         if (chipFollow) {
           // Chip-specific question — show targeted sub-chips and advance past the loop limit.
@@ -482,7 +481,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         // adds nothing. Two rounds only when the area is still completely unknown.
         const preEscalateLimit = area !== 'General' ? 1 : 2;
 
-        if (finalType === 1 && !isGenuinelyNovel && this.rephraseCount < preEscalateLimit) {
+        if (finalType === 1 && !isGenuinelyNovel && this.rephraseCount < preEscalateLimit && !(chipLabel && this.rephraseCount >= 1)) {
           const chipFollow = chipLabel ? CHIP_FOLLOW_UPS[chipLabel] : null;
           let deepenText: string;
           if (chipFollow) {
@@ -522,7 +521,8 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
             && finalScore < this.thresholds.approve
             && this.rephraseCount === 0
             && finalPriority !== 'P1'
-            && cumulativeWordCount < 6) {
+            && cumulativeWordCount < 6
+            && !chipLabel) {
           const chipFollow = chipLabel ? CHIP_FOLLOW_UPS[chipLabel] : null;
           let clarifyText: string;
           if (chipFollow) {
@@ -871,6 +871,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   get showStarterChips(): boolean {
     if (this.sid !== 'custom' && this.sid !== '__custom') return false;
     if (this.agentJoined) return false;
+    if (this.formSubmitted) return false;
     // After an outcome the confirm buttons are gone — show fresh-start chips
     // so the user has a clear path to report a new issue.
     if (this.outcome) return true;
@@ -1032,7 +1033,32 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
     this.startPlayback();
   }
 
-  refresh() { this.selectScenario(this.sid); }
+  refresh() {
+    // Always reset to a clean custom session — never replay __known or __custom with stale state
+    this.sid = 'custom';
+    this.n = 0;
+    this.halted = false;
+    this.outcome = null;
+    this.agentJoined = false;
+    this.customTicketId = null;
+    this.rephraseCount = 0;
+    this.lastConfidence = 0;
+    this.excludedKbIds = new Set();
+    this.activeSubChips = null;
+    this.expandedKnownIssueId = null;
+    this.formSubject = '';
+    this.formArea = '';
+    this.formPriority = 'P3';
+    this.formDesc = '';
+    this.formAttachment = null;
+    this.formSubmitted = false;
+    // Drop any custom/known scenarios so stale jira/eta can't bleed into the next session
+    const { __custom, __known, ...rest } = this.SCENARIOS as any;
+    this.SCENARIOS = rest;
+    clearTimeout(this.timer);
+    this.startPlayback();
+    setTimeout(() => this.scrollToBottom(), 50);
+  }
   replay() { this.refresh(); }
 
   private startPlayback() {
@@ -1171,7 +1197,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
   }
 
   ticketId(): string {
-    if (!this.classified) return '—';
+    if (!this.classified) return 'Pending';
     if (this.customTicketId) return this.customTicketId;
     return this.scenario.ticketId || ('#' + (5400 + this.scenario.type));
   }

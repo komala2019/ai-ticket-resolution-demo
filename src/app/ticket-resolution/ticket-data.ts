@@ -127,7 +127,7 @@ export const SCENARIOS: Record<string, Scenario> = {
       { from: 'ai', kind: 'thinking', text: 'Matching against the known-issue knowledge base…' },
       { from: 'ai', kind: 'classify' },
       { from: 'ai', kind: 'known', headline: "This is a known issue we're already fixing", intro: "You're hitting a render bug introduced in 3.13 that affects Chrome 124+. Our team has a fix in progress.", workaround: [
-        "Open the dashboard, then hard-refresh with ⌘⇧R (Cmd-Shift-R)",
+        "Open the dashboard, then hard-refresh: Ctrl+Shift+R on Windows, ⌘⇧R on Mac",
         "Charts will render on the second load while the fix ships" ] },
       { from: 'ai', kind: 'confirm', text: "The workaround should get you unblocked today. Want me to email you the moment the permanent fix ships?", positive: 'Yes, notify me', negative: "Workaround didn't help" },
     ],
@@ -242,7 +242,7 @@ export const KB: KbEntry[] = [
     etaDays: 6,
     steps: [
       'Open the blank dashboard in Chrome',
-      'Hard-refresh with ⌘⇧R (Mac) or Ctrl+Shift+R (Windows)',
+      'Hard-refresh: Ctrl+Shift+R on Windows, ⌘⇧R on Mac',
       'Charts will render correctly on the second load',
       'As an alternative, use Firefox or Safari until release 3.14 ships',
     ],

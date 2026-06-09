@@ -66,6 +66,7 @@
               <div class="tr-notif-desc">{{ n.body }}</div>
               <div class="tr-notif-time">{{ n.time }}</div>
             </div>
+            <button class="tr-notif-dismiss" (click)="demo.dismissNotification(n.id); $event.stopPropagation()" title="Dismiss">×</button>
           </div>
           <div *ngIf="demo.notifications.length === 0" class="tr-notif-empty">
             No notifications yet
@@ -123,8 +124,8 @@
 
   <!-- Content -->
   <main class="tr-content" [class.customer-view]="view === 'customer'" [class.docs-view]="isDocs">
-    <!-- Customer chat -->
-    <div *ngIf="view === 'customer'" class="tr-customer-wrapper">
+    <!-- Customer chat — kept alive with [hidden] so conversation state survives tab switches -->
+    <div [hidden]="view !== 'customer'" class="tr-customer-wrapper">
       <div style="max-width:1080px;margin:0 auto;height:100%;">
         <app-tr-customer-chat [thresholds]="thresholds"></app-tr-customer-chat>
       </div>

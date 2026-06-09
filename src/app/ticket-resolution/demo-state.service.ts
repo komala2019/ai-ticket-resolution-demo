@@ -132,6 +132,10 @@ export class DemoStateService {
     this._notifications.forEach(n => n.read = true);
     this.notifications$.next(this._notifications);
   }
+  dismissNotification(id: number) {
+    this._notifications = this._notifications.filter(n => n.id !== id);
+    this.notifications$.next(this._notifications);
+  }
   clearNotifications() {
     this._notifications = [];
     this.notifications$.next(this._notifications);
