@@ -295,7 +295,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
         .slice(lastStatusIdx + 1)
         .filter(s => s.from === 'user' && s.text)
         .map(s => s.text || '')
-        .slice(-3);
+        .slice(-4, -1);  // exclude the last entry (current msg, appended below as `msg`)
       const cumulativeMsg = [...priorUserTexts, msg].join(' ').trim();
       const isVague = isVagueQuery(cumulativeMsg);
 
@@ -372,14 +372,26 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
           if (thinkIdx !== -1) stepsList[thinkIdx] = aiStep;
           else stepsList.push(aiStep);
         } else {
-          this.rephraseCount++;
-          this.lastConfidence = score;
-          const clarifyText = this.rephraseCount === 1
-            ? `I can see this is related to the **${area}** area, but I need a bit more detail. What exactly do you see — is something missing, showing an error, or not loading?`
-            : `I want to make sure I give you the right answer. Could you describe the exact symptoms or steps to reproduce it?`;
-          const aiStep: ScenarioStep = { from: 'ai', text: clarifyText };
-          if (thinkIdx !== -1) stepsList[thinkIdx] = aiStep;
-          else stepsList.push(aiStep);
+          const areaChips = area !== 'General' ? AREA_SUBCHIPS[area] : null;
+          if (areaChips && this.rephraseCount === 0) {
+            // Known area but no specific issue described — show area-level sub-chips.
+            this.activeSubChips = [...areaChips];
+            this.rephraseCount = 1;
+            this.lastConfidence = score;
+            const clarifyText = `What's the specific issue with **${area}**? Pick the closest match below, or describe it in the chat.`;
+            const aiStep: ScenarioStep = { from: 'ai', text: clarifyText };
+            if (thinkIdx !== -1) stepsList[thinkIdx] = aiStep;
+            else stepsList.push(aiStep);
+          } else {
+            this.rephraseCount++;
+            this.lastConfidence = score;
+            const clarifyText = this.rephraseCount === 1
+              ? `I can see this is related to the **${area}** area, but I need a bit more detail. What exactly do you see — is something missing, showing an error, or not loading?`
+              : `I want to make sure I give you the right answer. Could you describe the exact symptoms or steps to reproduce it?`;
+            const aiStep: ScenarioStep = { from: 'ai', text: clarifyText };
+            if (thinkIdx !== -1) stepsList[thinkIdx] = aiStep;
+            else stepsList.push(aiStep);
+          }
         }
         this.n = stepsList.length;
         this.halted = false;
