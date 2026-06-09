@@ -24,6 +24,36 @@ const NOVEL_SIGNALS = [
   'business-critical', 'broke', 'no longer', 'suddenly', 'since the latest',
 ];
 
+/** Single source of truth for bug/symptom signal words — used in isBugIntent and isVagueQuery. */
+export const BUG_SYMPTOM_KEYWORDS = [
+  'bug', 'error', 'fail', 'issue', 'problem', 'broken', 'crash',
+  'wrong', 'missing', 'disappear', 'slow', 'disconnect', 'blank',
+  'empty', 'spinner', 'greyed', 'cannot', "can't", 'unable', 'help',
+  'gone', 'stop', 'stopped', 'lost', 'broke', 'suddenly', 'no longer',
+];
+
+/**
+ * Weighted signals used to compute a continuous urgency score.
+ * Higher weight → stronger indication of a business-critical / P1 situation.
+ * Exported so callers can extend or tune without touching core logic.
+ */
+export const URGENCY_SIGNALS: { phrase: string; weight: number }[] = [
+  { phrase: 'business-critical', weight: 40 },
+  { phrase: 'outage',            weight: 35 },
+  { phrase: 'critical',          weight: 25 },
+  { phrase: 'all users',         weight: 25 },
+  { phrase: 'everyone affected', weight: 22 },
+  { phrase: 'revenue',           weight: 20 },
+  { phrase: 'lost',              weight: 20 },
+  { phrase: 'urgent',            weight: 20 },
+  { phrase: 'cannot book',       weight: 20 },
+  { phrase: 'asap',              weight: 18 },
+  { phrase: 'down',              weight: 15 },
+  { phrase: 'stopped working',   weight: 12 },
+  { phrase: 'since update',      weight: 10 },
+  { phrase: 'customer',          weight:  8 },
+];
+
 const STOP = new Set([
   'the', 'a', 'an', 'is', 'are', 'was', 'were', 'my', 'i', 'to', 'of', 'on', 'in', 'it',
   'and', 'or', 'for', 'with', 'this', 'that', 'just', 'have', 'has', 'not', 'no', 'you',
@@ -61,11 +91,61 @@ function tagWords(tags: string[]): Set<string> {
   return out;
 }
 
-function detectArea(haystack: string): string | null {
+/**
+ * Augment the static AREA_KEYWORDS seed with unique words found in KB entry
+ * tags, so area detection improves automatically as the knowledge base grows.
+ */
+function buildAreaKeywords(kb: KbEntry[]): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
+  for (const [area, kws] of Object.entries(AREA_KEYWORDS)) {
+    map[area] = [...kws];
+  }
+  for (const entry of (kb || [])) {
+    // Find which area this KB entry belongs to by matching its tags/title to existing keywords
+    let matched: string | null = null;
+    let maxHits = 0;
+    for (const [area, kws] of Object.entries(map)) {
+      const entryText = [...(entry.tags || []), entry.title || ''].join(' ').toLowerCase();
+      const hits = kws.filter(kw => entryText.includes(kw)).length;
+      if (hits > maxHits) { maxHits = hits; matched = area; }
+    }
+    if (matched && maxHits > 0) {
+      (entry.tags || []).forEach(tag => {
+        tag.toLowerCase().split(/[\s/,]+/).forEach(word => {
+          const w = word.trim();
+          if (w.length > 3 && !map[matched!].includes(w)) map[matched!].push(w);
+        });
+      });
+    }
+  }
+  return map;
+}
+
+/**
+ * Returns a 0–100 urgency score derived from weighted phrase signals in the
+ * haystack, the novel-issue flag, and the classified type.  Replaces the old
+ * binary `looksNovel || 'critical' || 'lost'` check.
+ */
+function computeUrgencyScore(haystack: string, looksNovel: boolean, type: number): number {
+  const score = URGENCY_SIGNALS.reduce(
+    (acc, s) => haystack.includes(s.phrase) ? acc + s.weight : acc, 0,
+  );
+  return Math.min(100, score + (looksNovel ? 15 : 0) + (type === 1 ? 10 : 0));
+}
+
+function urgencyToPriority(urgencyScore: number): string {
+  if (urgencyScore >= 35) return 'P1';
+  if (urgencyScore >= 15) return 'P2';
+  return 'P3';
+}
+
+/** detectArea now augments static keywords with live KB tags so it improves as the KB grows. */
+function detectArea(haystack: string, kb?: KbEntry[]): string | null {
+  const areaKws = kb && kb.length > 0 ? buildAreaKeywords(kb) : AREA_KEYWORDS;
   let bestArea: string | null = null;
   let bestHits = 0;
-  for (const area of Object.keys(AREA_KEYWORDS)) {
-    const hits = AREA_KEYWORDS[area].filter(k => haystack.includes(k)).length;
+  for (const [area, kws] of Object.entries(areaKws)) {
+    const hits = kws.filter(k => haystack.includes(k)).length;
     if (hits > bestHits) { bestHits = hits; bestArea = area; }
   }
   return bestArea;
@@ -137,22 +217,19 @@ function mentionsKnownBug(e: KbEntry): boolean {
     c.includes('workaround') || (e.tags || []).some(t => t.includes('bug'));
 }
 
-export function isBugIntent(message: string, kb: KbEntry[]): boolean {
+export function isBugIntent(message: string, kb: KbEntry[], thresholds?: Thresholds): boolean {
   const msg = (message || '').toLowerCase();
   if (msg.includes('take a look at the attached file')) return true;
   const scored = scoreKb(msg, kb);
-  if (scored.length > 0 && scored[0].score > 30) return true;
-  for (const area of Object.keys(AREA_KEYWORDS)) {
-    const keywords = AREA_KEYWORDS[area];
-    if (keywords.some(k => msg.includes(k))) return true;
+  // Threshold is relative to the configurable rewrite threshold (default 40 → cutoff ~24).
+  // This keeps isBugIntent coherent with the user-tunable sliders rather than a magic constant.
+  const bugScoreThreshold = thresholds ? Math.round(thresholds.rewrite * 0.6) : 24;
+  if (scored.length > 0 && scored[0].score > bugScoreThreshold) return true;
+  const areaKws = buildAreaKeywords(kb);
+  for (const kws of Object.values(areaKws)) {
+    if (kws.some(k => msg.includes(k))) return true;
   }
-  const bugKeywords = [
-    ...NOVEL_SIGNALS,
-    'bug', 'error', 'fail', 'issue', 'problem', 'broken', 'crash', 
-    'wrong', 'missing', 'disappear', 'slow', 'disconnect', 'blank', 
-    'empty', 'spinner', 'greyed', 'cannot', 'can\'t', 'unable', 'help'
-  ];
-  if (bugKeywords.some(bk => msg.includes(bk))) return true;
+  if ([...NOVEL_SIGNALS, ...BUG_SYMPTOM_KEYWORDS].some(bk => msg.includes(bk))) return true;
   return false;
 }
 
@@ -175,17 +252,19 @@ export function classifyIssue(message: string, kb: KbEntry[], thresholds: Thresh
   const msg = (message || '').trim();
   const haystack = msg.toLowerCase();
 
-  const area = detectArea(haystack) || 'General';
+  const area = detectArea(haystack, kb) || 'General';
   const scored = scoreKb(haystack, kb || []);
   const best = scored[0] || null;
   const bestScore = best ? best.score : 0;
 
-  const looksNovel = NOVEL_SIGNALS.some(s => haystack.includes(s));
-  let confidence = bestScore;
-  // Novel phrasing dents confidence (but doesn't hard-cap it) so a strong
-  // KB match can still resolve while very weak matches still fall to Eng.
-  if (looksNovel) confidence = Math.max(0, confidence - 20);
-  confidence = Math.max(0, Math.min(100, confidence));
+  // Count how many novel-signal phrases fired and penalise proportionally.
+  // One signal: –9 pts. Two: –18. Three+: capped at –35.
+  // This avoids over-penalising messages that merely mention "after the update"
+  // while still hard-damping messages saturated with regression language.
+  const firedNovelSignals = NOVEL_SIGNALS.filter(s => haystack.includes(s));
+  const looksNovel = firedNovelSignals.length > 0;
+  const novelPenalty = Math.min(35, firedNovelSignals.length * 9);
+  let confidence = Math.max(0, Math.min(100, bestScore - novelPenalty));
 
   const route = routeFor(confidence, t);
 
@@ -200,8 +279,8 @@ export function classifyIssue(message: string, kb: KbEntry[], thresholds: Thresh
   else if ((confidence >= t.auto || isSelfService) && !hasBug) type = 3;
   else type = 2;
 
-  const priority = looksNovel || haystack.includes('critical') || haystack.includes('lost')
-    ? 'P1' : (type === 2 ? 'P2' : 'P3');
+  const urgencyScore = computeUrgencyScore(haystack, looksNovel, type);
+  const priority = urgencyToPriority(urgencyScore);
 
   const evidence = scored.slice(0, 2).map(s => ({ t: s.entry.id + ' · ' + s.entry.title, m: s.score }));
 
@@ -288,16 +367,8 @@ export function isVagueQuery(message: string): boolean {
   if (wordsCount === 0) return true;
   if (wordsCount < 3) return true;
 
-  // Check if it contains any bug/symptom keywords
-  const bugKeywords = [
-    'bug', 'error', 'fail', 'issue', 'problem', 'broken', 'crash', 
-    'wrong', 'missing', 'disappear', 'slow', 'disconnect', 'blank', 
-    'empty', 'spinner', 'greyed', 'cannot', 'can\'t', 'unable', 'help',
-    'gone', 'stop', 'stopped', 'lost', 'broke', 'suddenly', 'no longer'
-  ];
-
   if (wordsCount < 6) {
-    const hasSymptom = bugKeywords.some(keyword => msg.includes(keyword));
+    const hasSymptom = BUG_SYMPTOM_KEYWORDS.some(keyword => msg.includes(keyword));
     return !hasSymptom;
   }
 

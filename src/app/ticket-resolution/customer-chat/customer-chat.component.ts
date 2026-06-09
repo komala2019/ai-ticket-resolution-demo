@@ -157,7 +157,7 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
       id: '__custom',
       label: 'Your issue',
       type: 3,
-      confidence: isBug ? 90 : 0,
+      confidence: 0,
       productArea: 'General',
       priority: 'P3',
       summary: msg,
@@ -301,8 +301,10 @@ export class CustomerChatComponent implements OnChanges, OnDestroy {
           const intro    = localResult ? localResult.intro    : parseResolutionText(response.answer || '', 'Known issue').intro;
           const workaround = localResult ? localResult.steps  : parseResolutionText(response.answer || '', 'Known issue').steps;
           aiStep = { from: 'ai', kind: 'known', headline, intro, workaround };
-          this.SCENARIOS['__custom'].jira = kbId ? 'CS-' + kbId.slice(-3) : 'CS-4821';
-          this.SCENARIOS['__custom'].eta = 'Fix in progress — ~' + (3 + (kbId ? kbId.charCodeAt(kbId.length - 1) % 5 : 2)) + ' days';
+          this.SCENARIOS['__custom'].jira = localResult?.bestKb?.jira ?? (kbId ? 'CS-' + kbId.slice(-3) : undefined);
+          this.SCENARIOS['__custom'].eta = localResult?.bestKb?.etaDays
+            ? `Fix in progress — ~${localResult.bestKb.etaDays} days`
+            : 'Fix in progress';
         } else {
           const headline       = localResult ? localResult.headline : parseResolutionText(response.answer || '', "Here's how to resolve this").headline;
           const intro          = localResult ? localResult.intro    : parseResolutionText(response.answer || '', "Here's how to resolve this").intro;

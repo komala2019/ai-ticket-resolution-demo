@@ -206,6 +206,10 @@ export interface KbEntry {
   kind?: 'self-service' | 'known-bug';
   /** Optional ordered resolution steps shown directly in the chat card. */
   steps?: string[];
+  /** Linked Jira/issue tracker ID for known-bug entries (e.g. 'CS-4821'). */
+  jira?: string;
+  /** Estimated days until the permanent fix ships (for known-bug entries). */
+  etaDays?: number;
 }
 
 export const KB: KbEntry[] = [
@@ -232,6 +236,8 @@ export const KB: KbEntry[] = [
     uses: 37,
     updated: '5d ago',
     kind: 'known-bug',
+    jira: 'CS-4821',
+    etaDays: 6,
     steps: [
       'Open the blank dashboard in Chrome',
       'Hard-refresh with ⌘⇧R (Mac) or Ctrl+Shift+R (Windows)',
@@ -247,6 +253,8 @@ export const KB: KbEntry[] = [
     uses: 12,
     updated: '1d ago',
     kind: 'known-bug',
+    jira: 'CS-4790',
+    etaDays: 5,
     steps: [
       'Pause or archive the affected automation to prevent further duplicates',
       'Stagger segment edits 10+ minutes before any scheduled send time',
