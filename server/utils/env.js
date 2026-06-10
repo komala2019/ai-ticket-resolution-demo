@@ -10,6 +10,8 @@ const envPaths = [
   path.join(process.cwd(), '..', 'environment.env'),
 ];
 
+let geminiLoaded = false;
+
 for (const p of envPaths) {
   if (fs.existsSync(p)) {
     try {
@@ -26,6 +28,9 @@ for (const p of envPaths) {
           }
           process.env[key] = val;
           console.log(`[Env Loader] Loaded ${key} from: ${p}`);
+          if (key === 'GEMINI_API_KEY') {
+            geminiLoaded = true;
+          }
         }
       }
     } catch (e) {
@@ -33,3 +38,8 @@ for (const p of envPaths) {
     }
   }
 }
+
+if (!geminiLoaded) {
+  delete process.env.GEMINI_API_KEY;
+}
+
