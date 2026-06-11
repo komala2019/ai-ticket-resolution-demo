@@ -112,6 +112,7 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
   activeSubChips: string[] | null = null;
 
   private timer: any;
+  private mayaFollowUpTimer: any;
   private sub?: Subscription;
 
   get scenario(): Scenario { return this.SCENARIOS[this.sid]; }
@@ -152,8 +153,12 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
     if (attachment) userStep.attachment = attachment;
 
     if (this.agentJoined) {
+      // Cancel any pending auto-follow-up from a prior turn so it doesn't
+      // fire after the user has already moved on to a new message.
+      clearTimeout(this.mayaFollowUpTimer);
+
       currentSteps.push(userStep);
-      
+
       const typingStep: ScenarioStep = {
         from: 'ai',
         agent: true,
@@ -161,7 +166,7 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
         text: 'Maya is typing...'
       };
       currentSteps.push(typingStep);
-      
+
       const customScenario: Scenario = {
         id: '__custom',
         label: 'Your issue',
@@ -189,7 +194,7 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
         const contextSteps = thinkIdx !== -1
           ? oldSteps.slice(0, thinkIdx)
           : oldSteps.slice(0, this.n);
-        const replyText = getSimulatedAgentReply(msg, contextSteps);
+        const replyText = getSimulatedAgentReply(msg, contextSteps, chipLabel);
         const agentStep: ScenarioStep = { from: 'ai', agent: true, text: replyText };
 
         // Build a new steps array so Angular's ngFor detects the reference change.
@@ -216,7 +221,7 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
           this.scheduleMayaFollowUp(replyText, newSteps.length);
         }
       }, 1600);
-      
+
       return;
     }
 
@@ -1263,7 +1268,7 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
    * result 2 s later — no user input required.
    */
   scheduleMayaFollowUp(placeholderReply: string, stepsLenAfterReply: number) {
-    setTimeout(() => {
+    this.mayaFollowUpTimer = setTimeout(() => {
       const scenario = this.SCENARIOS['__custom'];
       if (!scenario) return;
 
@@ -1294,6 +1299,7 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
 
   ngOnDestroy() {
     clearTimeout(this.timer);
+    clearTimeout(this.mayaFollowUpTimer);
     if (this.sub) {
       this.sub.unsubscribe();
     }
@@ -1311,8 +1317,30 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
  *  - Progressive investigation flow: browser → all-users → logs → escalate,
  *    driven by the answers the user gives, not random selection.
  */
-function getSimulatedAgentReply(userMessage: string, history: ScenarioStep[]): string {
+function getSimulatedAgentReply(userMessage: string, history: ScenarioStep[], chipLabel: string | null = null): string {
   const msg = userMessage.toLowerCase().trim();
+
+  // ── Chip-label shortcuts ───────────────────────────────────────────────────
+  // Chip clicks carry a known intent — handle them directly before any keyword
+  // matching so "Report a bug" doesn't accidentally hit BUG_SYMPTOM_KEYWORDS.
+  if (chipLabel) {
+    const chip = chipLabel.toLowerCase();
+    if (chip === 'different issue') {
+      return "Of course! What's the new issue you'd like help with? I can see everything from this conversation so there's no need to repeat yourself.";
+    }
+    if (chip === 'report a bug') {
+      return "Happy to log a bug report. Could you describe what's happening — what you expected to see, what actually happened, and the steps to reproduce it?";
+    }
+    if (chip === 'add more context') {
+      return "Please go ahead — any extra details, error messages, or screenshots will help me narrow this down faster.";
+    }
+    if (chip === 'mark as urgent') {
+      return "Got it — I've flagged this as urgent. Could you briefly describe the business impact so I can set the right priority?";
+    }
+    if (chip === 'contact support') {
+      return "I'm right here! Feel free to share whatever you need — I'll make sure this gets to the right team.";
+    }
+  }
 
   // ── Conversational context ──────────────────────────────────────────────────
   const agentSteps = history.filter(s => s.agent && s.from === 'ai' && s.text && s.kind !== 'thinking');
