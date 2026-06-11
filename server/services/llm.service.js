@@ -37,8 +37,16 @@ function fallbackAnswer(message, context) {
   };
 }
 
-async function generateGeminiAnswer(message, context, apiKey) {
-  const prompt = [
+async function generateGeminiAnswer(message, context, apiKey, history = []) {
+  const kbContext = context.map(item => `- ${item.id}: ${item.title}\n  ${item.content}`).join('\n\n');
+
+  // Build multi-turn contents: prior turns first, then the current user message with KB context appended.
+  const priorContents = history.map(turn => ({
+    role: turn.role === 'ai' ? 'model' : 'user',
+    parts: [{ text: turn.text }],
+  }));
+
+  const currentPrompt = [
     'Use the retrieved KB context to answer the customer issue.',
     'If the evidence is weak, recommend escalation.',
     '',
@@ -46,8 +54,13 @@ async function generateGeminiAnswer(message, context, apiKey) {
     message,
     '',
     'Retrieved KB context:',
-    context.map(item => `- ${item.id}: ${item.title}\n  ${item.content}`).join('\n\n'),
+    kbContext,
   ].join('\n');
+
+  const contents = [
+    ...priorContents,
+    { role: 'user', parts: [{ text: currentPrompt }] },
+  ];
 
   try {
     const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
@@ -56,12 +69,7 @@ async function generateGeminiAnswer(message, context, apiKey) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: prompt }]
-          }
-        ],
+        contents,
         systemInstruction: {
           parts: [{ text: 'You are Mile Assistant, a support copilot assistant for a ticket-resolution demo. If there is a matching KB article in the retrieved context that addresses the user query, start your response with a brief, friendly confirmation of what was matched (e.g., "Based on your description, I matched this to our knowledge base article: **[Article Title]**. Here is the recommended resolution:").' }]
         },
@@ -117,7 +125,13 @@ async function generateOpenaiAnswer(message, context, apiKey) {
       }),
     });
 
-    if (!res.ok) throw new Error('OpenAI request failed');
+    if (!res.ok) {
+      let errText = '';
+      try {
+        errText = await res.text();
+      } catch (_) {}
+      throw new Error(`OpenAI request failed with status ${res.status}: ${errText}`);
+    }
     const data = await res.json();
     const answer = data.choices?.[0]?.message?.content || 'No reply returned.';
 
@@ -133,11 +147,11 @@ async function generateOpenaiAnswer(message, context, apiKey) {
   }
 }
 
-export async function generateAnswer(message, context) {
+export async function generateAnswer(message, context, history = []) {
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
     try {
-      return await generateGeminiAnswer(message, context, geminiKey);
+      return await generateGeminiAnswer(message, context, geminiKey, history);
     } catch (error) {
       console.warn("[LLM Service] Gemini generateAnswer failed. Trying OpenAI backup if key available...");
     }

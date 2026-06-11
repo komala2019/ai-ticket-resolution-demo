@@ -22,13 +22,14 @@ app.use((err, _req, res, _next) => {
 
 app.post('/api/chat', async (req, res) => {
   const message = String(req.body?.message || '').trim();
+  const history = Array.isArray(req.body?.history) ? req.body.history : [];
 
   if (!message) {
     return res.status(400).json({ error: 'message is required' });
   }
 
   const context = await retrieveContext(message, 3);
-  const answer = await generateAnswer(message, context);
+  const answer = await generateAnswer(message, context, history);
   const traceEntry = trace('chat-request', { message, context, answer });
 
   res.json({

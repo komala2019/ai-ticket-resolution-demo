@@ -313,24 +313,26 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
     clearTimeout(this.timer);
     setTimeout(() => this.scrollToBottom(), 50);
 
-    this.api.chat(msg).subscribe(response => {
+    // Build conversation history before the API call so Gemini has full context.
+    const lastStatusIdx = currentSteps.reduce(
+      (idx, s, i) => (s.kind === 'status' ? i : idx), -1
+    );
+    const conversationHistory = currentSteps
+      .slice(lastStatusIdx + 1)
+      .filter(s => (s.from === 'user' || s.from === 'ai') && s.text && s.kind !== 'thinking')
+      .slice(-8, -1)  // up to 4 prior turns (user+ai pairs), exclude current user msg
+      .map(s => ({ role: s.from as 'user' | 'ai', text: s.text || '' }));
+
+    this.api.chat(msg, conversationHistory).subscribe(response => {
       const stepsList = this.SCENARIOS['__custom'].steps;
       const thinkIdx = stepsList.findIndex(s => s.kind === 'thinking');
       const isOffline = !response.ok || response.model === 'demo-fallback';
       this.backendMode = isOffline ? 'offline' : 'online';
 
-      // ── Build cumulative context ONCE ──────────────────────────────────────
-      // Only use user messages from the current "session" — i.e. after the
-      // last status step. This prevents the original bug description from
-      // bleeding into follow-up classifications after a ticket was raised.
-      const lastStatusIdx = currentSteps.reduce(
-        (idx, s, i) => (s.kind === 'status' ? i : idx), -1
-      );
-      const priorUserTexts = currentSteps
-        .slice(lastStatusIdx + 1)
-        .filter(s => s.from === 'user' && s.text)
-        .map(s => s.text || '')
-        .slice(-4, -1);  // exclude the last entry (current msg, appended below as `msg`)
+      // ── Build cumulative context from the history we already captured ─────
+      const priorUserTexts = conversationHistory
+        .filter(s => s.role === 'user')
+        .map(s => s.text);
       const cumulativeMsg = [...priorUserTexts, msg].join(' ').trim();
       // When the user is answering a chip drill-down (rephraseCount >= 2),
       // classify on just the current message so the original generic starter
@@ -347,8 +349,11 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
       let evidence: { t: string; m: number }[];
       let localResult: LocalClassifyResult | null = null;
 
+      // Always run the local classifier — it's instant/local and fills gaps that
+      // the LLM response leaves open: looksNovel, priority, fallback headline/steps.
+      localResult = classifyIssue(classifyMsg, this.demo.kb, this.thresholds, this.excludedKbIds);
+
       if (isOffline) {
-        localResult = classifyIssue(classifyMsg, this.demo.kb, this.thresholds, this.excludedKbIds);
         score = localResult.confidence;
         route = localResult.route;
         type = localResult.type;
@@ -359,9 +364,10 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
         score = response.confidence ?? 0;
         route = response.route || 'fallback';
         type = 3;
-        area = 'General';
-        kbId = undefined;
-        evidence = [];
+        // Seed area/kbId from local classifier, then override with LLM context if available.
+        area = localResult.productArea;
+        kbId = localResult.bestKb?.id;
+        evidence = localResult.evidence;
         if (route.includes('escalate') || score < this.thresholds.rewrite) type = 1;
         else if (score < this.thresholds.auto) type = 2;
         if (response.context && response.context.length > 0) {
@@ -376,8 +382,7 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
         }
       }
 
-      const priority = (isOffline && localResult) ? localResult.priority
-        : (type === 1 ? 'P1' : (type === 2 ? 'P2' : 'P3'));
+      const priority = localResult.priority;
 
       // ── Chip drill-down gate ──────────────────────────────────────────────
       // rephraseCount=1 means the user just picked a level-1 area sub-chip.
@@ -560,9 +565,9 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
 
             const otherTitles = isOffline
               ? scoreKb(classifyMsg, this.demo.kb, this.excludedKbIds)
-                  .slice(1, 4) // next 3 matches
+                  .slice(1, 4)
                   .map(s => s.entry.title)
-              : [];
+              : (response.context?.slice(1, 4).map((r: any) => r.title) ?? []);
 
             let otherMatchesText = '';
             if (otherTitles.length > 0) {
@@ -617,19 +622,21 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
             ],
           };
         } else if (finalType === 2) {
-          // Use KB entry data directly (offline) or parse the LLM response (online)
-          const headline = localResult ? localResult.headline : parseResolutionText(response.answer || '', 'Known issue').headline;
-          const intro    = localResult ? localResult.intro    : parseResolutionText(response.answer || '', 'Known issue').intro;
-          const workaround = localResult ? localResult.steps  : parseResolutionText(response.answer || '', 'Known issue').steps;
+          // Resolve the matched KB entry: LLM's top hit takes precedence over local classifier.
+          const matchedKb = (kbId ? this.demo.kb.find(k => k.id === kbId) : null) ?? localResult.bestKb ?? null;
+          const headline = matchedKb ? `${matchedKb.id}: ${matchedKb.title}` : localResult.headline;
+          const intro    = matchedKb?.content ?? localResult.intro;
+          const workaround = matchedKb?.steps ?? localResult.steps;
           aiStep = { from: 'ai', kind: 'known', headline, intro, workaround };
-          this.SCENARIOS['__custom'].jira = localResult?.bestKb?.jira ?? (kbId ? 'CS-' + kbId.slice(-3) : undefined);
-          this.SCENARIOS['__custom'].eta = localResult?.bestKb?.etaDays
-            ? `Fix in progress — ~${localResult.bestKb.etaDays} days`
+          this.SCENARIOS['__custom'].jira = matchedKb?.jira ?? (kbId ? 'CS-' + kbId.slice(-3) : undefined);
+          this.SCENARIOS['__custom'].eta = matchedKb?.etaDays
+            ? `Fix in progress — ~${matchedKb.etaDays} days`
             : 'Fix in progress';
         } else {
-          const headline       = localResult ? localResult.headline : parseResolutionText(response.answer || '', "Here's how to resolve this").headline;
-          const intro          = localResult ? localResult.intro    : parseResolutionText(response.answer || '', "Here's how to resolve this").intro;
-          const resolutionSteps = localResult ? localResult.steps   : parseResolutionText(response.answer || '', "Here's how to resolve this").steps;
+          const matchedKb = (kbId ? this.demo.kb.find(k => k.id === kbId) : null) ?? localResult.bestKb ?? null;
+          const headline       = matchedKb ? `${matchedKb.id}: ${matchedKb.title}` : localResult.headline;
+          const intro          = matchedKb?.content ?? localResult.intro;
+          const resolutionSteps = matchedKb?.steps ?? localResult.steps;
           aiStep = { from: 'ai', kind: 'resolution', headline, intro, resolutionSteps };
         }
 

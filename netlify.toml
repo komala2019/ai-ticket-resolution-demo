@@ -10,6 +10,20 @@
   # regardless of your local Node version.
   NODE_VERSION = "18"
 
+# Proxy /health and /api/* to the deployed backend.
+# Set BACKEND_URL in Netlify → Site configuration → Environment variables.
+[[redirects]]
+  from = "/health"
+  to = ":BACKEND_URL/health"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/*"
+  to = ":BACKEND_URL/api/:splat"
+  status = 200
+  force = true
+
 # SPA fallback so deep links / refreshes resolve to the Angular app.
 [[redirects]]
   from = "/*"

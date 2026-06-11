@@ -7,6 +7,7 @@ import {
   SCENARIOS, SCENARIO_ORDER, QUEUE, KB, METRICS, TREND,
 } from './ticket-data';
 import { DemoStateService } from './demo-state.service';
+import { environment } from '../../environments/environment';
 
 /** Result of the classify endpoint (the "AI" entry point). */
 export interface ClassifyResponse {
@@ -104,14 +105,14 @@ export class TicketResolutionApiService {
   }
 
   healthCheck(): Observable<boolean> {
-    return this.http.get<{ ok: boolean }>('http://localhost:3001/health')
+    return this.http.get<{ ok: boolean }>(`${environment.backendUrl}/health`)
       .pipe(timeout(3000), map(r => r?.ok === true), catchError(() => of(false)));
   }
 
-  chat(message: string): Observable<ChatResponse> {
-    return this.http.post<ChatResponse>('http://localhost:3001/api/chat', { message }, { headers: this.headers })
+  chat(message: string, history: { role: 'user' | 'ai'; text: string }[] = []): Observable<ChatResponse> {
+    return this.http.post<ChatResponse>(`${environment.backendUrl}/api/chat`, { message, history }, { headers: this.headers })
       .pipe(
-        timeout(10000),
+        timeout(30000),
         catchError(() => of({
           ok: false,
           route: 'fallback',
