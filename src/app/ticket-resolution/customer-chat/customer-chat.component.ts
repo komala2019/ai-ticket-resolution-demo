@@ -373,7 +373,13 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
         if (response.context && response.context.length > 0) {
           const topHit = response.context[0];
           kbId = topHit.id;
-          if (topHit.tags && topHit.tags.length > 0) area = topHit.tags[0];
+          if (topHit.tags && topHit.tags.length > 0) {
+            const rawTag = topHit.tags[0] as string;
+            // KB tags are lowercase; AREA_SUBCHIPS keys are title-case — normalize.
+            area = AREA_SUBCHIPS[rawTag]
+              ? rawTag
+              : (Object.keys(AREA_SUBCHIPS).find(k => k.toLowerCase() === rawTag.toLowerCase()) ?? rawTag);
+          }
           const contextK = score >= this.thresholds.auto ? 1 : score >= this.thresholds.approve ? 2 : 3;
           evidence = response.context.slice(0, contextK).map((r: any) => ({
             t: `${r.id} · ${r.title}`,
@@ -464,6 +470,7 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
             else stepsList.push(aiStep);
           }
         }
+        this.SCENARIOS['__custom'].productArea = area;
         this.n = stepsList.length;
         this.halted = false;
 
@@ -864,7 +871,7 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
     this.SCENARIOS = { ...this.SCENARIOS, __custom: dyn };
     this.sid = '__custom';
     this.n = dyn.steps.length;
-    this.halted = true;
+    this.halted = false;
     this.demo.notify('Agent joined', 'A support specialist took over the conversation.', 'blue');
     setTimeout(() => this.scrollToBottom(), 50);
   }
@@ -903,7 +910,6 @@ export class CustomerChatComponent implements OnChanges, OnInit, OnDestroy {
   /** Show quick-reply chips throughout the custom chat session (not just at the start). */
   get showStarterChips(): boolean {
     if (this.sid !== 'custom' && this.sid !== '__custom') return false;
-    if (this.agentJoined) return false;
     if (this.formSubmitted) return false;
     // After an outcome the confirm buttons are gone — show fresh-start chips
     // so the user has a clear path to report a new issue.

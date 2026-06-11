@@ -4,6 +4,7 @@
   "description": "AI Ticket Auto-Resolution — standalone demo (runs on bundled data, no backend required)",
   "scripts": {
     "start": "ng serve",
+    "start:mobile": "ng serve --host 0.0.0.0",
     "build": "ng build --configuration production",
     "debug": "node scripts/debugger/main-debugger.js",
     "eval": "node scripts/eval-rag.mjs",
@@ -30,6 +31,7 @@
     "@angular/cli": "^15.2.0",
     "@angular/compiler-cli": "^15.2.0",
     "@types/node": "^18.16.0",
+    "playwright": "^1.60.0",
     "typescript": "~4.9.5"
   }
 }
